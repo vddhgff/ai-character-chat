@@ -1862,8 +1862,8 @@ async function boot() {
   try {
     state.settings = await store.initStore();
     // Apply the requested visual redesign once, without touching chats or API keys.
-    if (state.settings.interfaceStyle !== "compact-light-v1") {
-      state.settings = await store.saveSettings({ theme: "light", fontSize: 13, interfaceStyle: "compact-light-v1" });
+    if (state.settings.interfaceStyle !== "compact-light-v2") {
+      state.settings = await store.saveSettings({ theme: "light", fontSize: 13, interfaceStyle: "compact-light-v2" });
     }
     applySettings();
     await reloadAll();

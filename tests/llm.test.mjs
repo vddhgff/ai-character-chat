@@ -111,7 +111,7 @@ test("background summarization threshold, newest twelve retention, and abort wit
 
 
 test("light redesign migrates appearance once and preserves later choices", async () => {
-  let saved = { theme: "dark", fontSize: 15, activeUserCharacterId: "my-persona", autoSummarize: false };
+  let saved = { theme: "dark", fontSize: 15, interfaceStyle: "compact-light-v1", activeUserCharacterId: "my-persona", autoSummarize: false };
   let writes = 0;
   const state = {};
   const ctx = vm.createContext({ state, applySettings() {}, store: {
@@ -128,4 +128,12 @@ test("light redesign migrates appearance once and preserves later choices", asyn
   saved = { ...saved, theme: "dark", fontSize: 17 };
   await vm.runInContext(migrate, ctx);
   assert.equal(saved.theme, "dark"); assert.equal(saved.fontSize, 17); assert.equal(writes, 1);
+});
+
+
+test("all app SVG icons have a bounded size and outlined style", () => {
+  const css = readFileSync(new URL("../css/style.css", import.meta.url), "utf8");
+  const rule = css.match(/svg\.i\s*\{([^}]+)\}/)?.[1] || "";
+  assert.match(rule, /width:16px/); assert.match(rule, /height:16px/);
+  assert.match(rule, /fill:none/); assert.match(rule, /stroke:currentColor/);
 });

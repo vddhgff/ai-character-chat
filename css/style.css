@@ -191,3 +191,9 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 .tag-row { display:flex; flex-wrap:wrap; gap:4px; }
 .tag { padding:2px 5px; font-size:10px; }
 @media(hover:none) { .msg-actions { opacity:1; } }
+
+/* SVG viewBox alone has a 300x150 intrinsic size; constrain every app icon. */
+svg.i { width:16px; height:16px; min-width:16px; flex-shrink:0; display:inline-block; vertical-align:middle; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.btn { display:inline-flex; align-items:center; justify-content:center; gap:5px; }
+.msg-action { display:inline-flex; align-items:center; justify-content:center; }
+.char-card-top > svg.i { width:18px; height:18px; }
