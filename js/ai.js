@@ -111,6 +111,8 @@ export async function requestReply({
   onChunk,
   onStart,
   speakerRole = "char",
+  extraInstruction = "",
+  maxOutputTokens,
 }) {
   const focus = focusCharacter;
   const instruction = [
@@ -119,6 +121,7 @@ export async function requestReply({
       : buildSystemBlock({ characters, user }),
     "# CONVERSATION SO FAR\n\n" +
       (buildChatLog(messages, summary, summaryUpTo) || "(The conversation has not started yet.)"),
+    extraInstruction ? `# LOCAL AUTHOR SETTINGS\n${extraInstruction}` : "",
     `TASK: Write the next message in the conversation, spoken by ${focus.name}. Output only ${focus.name}'s message.`,
   ].join("\n\n");
 
@@ -135,6 +138,7 @@ export async function requestReply({
     instruction,
     startWith,
     stopSequences,
+    maxOutputTokens,
     onChunk: onChunk ? (d) => onChunk(d.fullTextSoFar) : undefined,
   });
   onStart?.(promise);

@@ -1,42 +1,52 @@
-# DESIGN 2 integration
+# DESIGN 2 integration and independent local features
 
-Reference: the user's **AI Character Chat — Complete Visual Design Spec** (DESIGN 2.md) and the original [Perchance generator](https://perchance.org/5shpo77nku#edit).
+Reference: the user's **AI Character Chat — Complete Visual Design Spec** (DESIGN 2.md) and [original Perchance source](https://perchance.org/5shpo77nku#edit). This app is independently hosted, not connected to Perchance's runtime or community services.
 
-## Where the changes are
+## Targeted design corrections
 
-- `index.html`: original-style 270px thread-first sidebar; conditional thread search; bottom Settings/Tips/fullscreen/export/import controls and emojis; original stylesheet plus adaptation stylesheet loading. Existing startup/loading and hidden compatibility IDs retained.
-- `css/perchance-original.css`: exact main stylesheet extracted from the original generator output template, including light/dark design tokens, source scrollbar/hover/typing rules and attribution.
-- `css/perchance-layout.css`: maps original styling to this project's working IDs. Exact `#e8e8e8` canvas, `#c8c8c8` buttons, `#b4b4b4` hover/borders, `#f1f1f1` input/box fill, dark equivalents, 3px corners, 270px rail, 50px avatars, .5rem spacing, .825rem buttons, inherited sans-serif, unboxed message text, feature toolbar, composer, dialogs and responsive layouts. SVG icons remain bounded at 16px.
-- `js/app.js`: thread cards/search, source-shaped emoji header/toolbar/Options menu, local Settings dialog, art-style selection saved on the character, speaker shortcuts, draft retention during composer rerenders, avatar/auto-reply toggles, explicit one-time Light/16px appearance migration, and bounded user-started auto-talk. Theme choices made after the migration remain respected. Stop and navigation cancel an auto-talk run; no run starts or resumes merely on load.
-- `js/autotalk.js`: bounded rotating-character controller; pause/resume, request cancellation, timer cleanup, failure handling and hard 1–100 message validation. Default cap is 25; the user must press Start after a charge notice. Two actual chat characters are required. It does not automatically generate user turns.
-- `js/ai.js`: explicitly requested user-speaker drafts override the otherwise correct instruction forbidding AI-written user messages and omit the user's own stop sequence.
-- `tests/llm.test.mjs`: existing context/Stop/metadata tests retained, migration expectations updated and explicit user-speaker coverage added.
-- `tests/autotalk.test.mjs`: inert startup, rotation/cap, pause/resume, abort, late results, timer cleanup, failures and validation.
-- `tests/design-dom.mjs` and `package.json`: repeatable isolated DOM smoke checks and test commands. DOM fixtures are memory-only and provider responses mocked.
+- Edit-character/describe-yourself quick actions now scroll inside the message feed; a separate floating header contains the hamburger and feature toolbar. Toolbar controls progressively collapse by measured available width, in the original source's order, rather than fixed group-hiding breakpoints.
+- Sidebar is explicitly 270 CSS pixels including its 8px padding, with a fixed flex basis and border-box sizing. A saved screenshot is 1920×1200; a 1280-wide rendition scales a 270px rail to 180 image pixels. Do not enlarge the rail to compensate for screenshot rescaling.
+- Absent portraits are blank neutral 50px squares, not teal initials. Placeholder colors are #d3d3d3 (Light) / #3d3d3d (Dark), with 3px corners. Existing actual portraits remain intact.
+- Default interface corners are 3px; toolbar groups 1.8px, local gallery cards 8px, thumbnail placeholders 4px, toasts 6px, typing dots 2px. Source theme tokens are retained; inherited card-hover/link overrides are corrected. Hover fills are fine-pointer-only. Toast styling follows the spec's box-color toast, distinct from its blue notification token.
+- Mobile avatars retain 50px dimensions; the sidebar remains a dismissible overlay. Composer retains its 4.5rem minimum height, bottom send/options column and non-resizable textarea.
+
+## Working replacements and their limits
+
+1. **Character generation and saving.** The library's ✨ Generate a character offers an offline local template, derived from the supplied brief, or an explicitly selected configured AI provider. AI mode requests validated JSON, strips executable/storage fields, supports Stop and rejects late results. Both modes open an editable draft; only pressing Save persists a character. Cancel does not create a blank character. Provider mode may cost money and requires the owner's existing provider configuration.
+2. **Imagination and narrator.** Per-thread presets persist and modify subsequent generated instructions. Narrator style affects explicit Narrator replies; changing a preset alone makes no request. Random imagination selects and displays a local preset.
+3. **Response length.** Short/medium/long set actual output ceilings of 256/1024/2048 tokens. The provider adapter clamps requests to its configured maximum. This is not a promised word count.
+4. **Image direction and art style.** Direction persists per thread and is appended to image prompts; art style remains saved per character and applies to that character's chats. Existing image-generation adapters are reused, not Perchance image servers.
+5. **Inner-life and needs.** Editable fictional notes and manually controlled hunger/thirst/energy persist per thread and affect subsequent replies when enabled. They are not hidden model reasoning or an autonomous needs simulation. Optional notes are trimmed to available context rather than expanding the existing context target.
+6. **Gallery.** Actual message images and PNG/JPEG/GIF/WebP uploads appear in a local gallery/lightbox. Uploads are limited to 1MB, stored persistently, and storage failures are reported. This is not Perchance's public style catalog or image-conditioned generation.
+7. **Research.** Explicit external web/image-search links plus locally saved pasted findings and source URLs. Notes are labeled unverified reference material and are sent with subsequent prompts; this app does not crawl, verify results or silently access live search. Research is manual, not a reimplementation of Perchance's search backend.
+8. **Free will.** Reuses bounded, explicitly started multi-character auto-talk with pause, Stop and a visible turn limit. Settings persist per thread, but a reload never automatically resumes a run. At least two chat characters are required.
+9. **Feedback/comments.** Enabled private local notebooks with Save and text export. Their dialogs explicitly say they are not public community posts or messages to the developer. Nothing is sent.
+
+Storage is the existing `acc_kv_` **localStorage**, not a new backend or IndexedDB. Writes commit to storage before updating the in-memory cache, so quota/security failures do not report successful saves. Existing characters, threads and messages retain their storage keys. Notes have their own export; no new cross-device synchronization is claimed.
+
+## Changed files in this update
+
+- `js/feature-state.js`: pure normalization, prompt settings/budgets, character template/AI draft validation, safe research links and gallery validation.
+- `js/local-features.js`: working local dialogs, character generation/review, notebook export and persistent image uploads.
+- `js/local-kv.js`: durable, clone-on-read localStorage adapter; `js/boot.js` imports it.
+- `js/toolbar-layout.js`: original width-measured collapse sequence and separator visibility.
+- `js/app.js`: local controls/actions, draft-only new characters, save errors, per-thread state, neutral placeholders, source header and prompt/image integration.
+- `js/ai.js`, `js/llm.js`: pass optional author settings and output ceilings through the existing stoppable provider pipeline.
+- `css/perchance-layout.css`, `index.html`: scoped design corrections and enabled, honestly labeled independent controls.
+- `tests/local-features.test.mjs`, `tests/design-dom.mjs`: feature behavior, UI persistence and regression checks.
+- `DESIGN-INTEGRATION.md`: this implementation/limitations record.
 
 ## Validation
 
-- `npm test`: 15 tests passed.
-- `npm run test:dom`: six in-memory DOM integration checks passed: fresh boot/Light/greeting/toolbars without generation, actual delegated clicks/Settings, Light–Dark switching and draft preservation, three speaker roles, conditional thread search, and disabled unavailable Options entries.
-- Syntax checks passed for changed JavaScript modules; `git diff --check` passed for tracked changes.
-- No real text/image request, provider-key entry or user-data deletion was performed during verification.
-- The DOM checks do **not** measure rendered pixels or establish a pixel-identical browser comparison. Browser comparison is pending publication.
+- `npm test`: 26 tests, including the original 15 regression tests.
+- `npm run test:dom`: eight isolated DOM integration checks, including active Options dialogs, persistent notes/settings, local generation → editable draft → actual Save with zero provider calls.
+- Additional tests cover safe AI JSON, Stop/late results, prompt effects, output ceilings, remaining-context trimming, gallery validation, failed-storage behavior and per-thread isolation after navigation.
+- No real text/image provider request, credential entry or deletion of existing user data was used for these checks. Provider calls are mocked; paid/provider end-to-end behavior is not live-verified.
+- These tests are not rendered-pixel comparisons. A new published-browser comparison is required before claiming measured visual fidelity; no pixel-perfect claim is made here.
 
-To repeat the checks after downloading the project, install development dependencies with `npm install`, then run `npm test` and `npm run test:dom`. No provider credentials are required.
+To repeat: `npm install`, `npm test`, `npm run test:dom`. No provider credentials are needed for tests. The 9,000-token context target, 2,048-token reply ceiling, synchronous metadata and existing cancellation protections remain covered.
 
-## What is intentionally not claimed
-
-This is an integration of the design into the existing modular app, not a wholesale port of Perchance's runtime and plugins.
-
-1. Perchance community feedback/comments, example-image style gallery, internet/image research, imagination/sparks, inner-life/body-needs/free-will simulations, advanced narrator controls, standing image-direction settings and response-length profiles are not connected. Their corresponding visible controls are disabled or marked unavailable; they do not pretend to perform those operations. Single Narrator replies and bounded multi-character auto-talk are implemented independently.
-2. Only a small local art-style selection is offered, not Perchance's full style catalog/gallery.
-3. Toolbar group hiding uses responsive CSS breakpoints rather than Perchance's runtime width-measuring cascade. The header's edit/describe buttons remain visible, and feature groups are arranged on a following row rather than reproducing all original overlay behavior.
-4. The new-character/library screen and editors remain this project's functional versions, restyled rather than completely replaced. URL-based character generation, favorites/folders, input-history/slash-command UI, message variants, music player, emergency export modal and custom-code side column were not ported.
-5. Thread search matches titles/previews; it is not Perchance's full-message regular-expression search. Thread numeric badges are display-order badges, not imported Perchance database IDs.
-6. Local provider configuration, storage format, current character portraits/greetings and AI behavior remain this project's. Existing browser data is not migrated into Perchance's database schema.
-7. `js/llm.js` and `js/boot.js` were not changed. The 9,000-token total context target, 2,048-token reply maximum, synchronous metadata behavior and generation cancellation safeguards remain covered by offline tests. Browser UI alone does not prove a provider honored a token budget.
-
-The changes were originally prepared and validated locally. On November 9, 2026, the user explicitly authorized committing, pushing to main, and publishing with GitHub Pages. Browser visual verification is a separate follow-up; the checks above do not establish pixel-perfect rendering.
+Other previously documented non-ports remain out of scope: Perchance favorites/folders and full-message regex search, URL-page character extraction, message variants/history/slash commands, music and its custom-code side column. Existing app data/provider configuration and the one-time Light migration are retained; later theme choices are respected.
 
 ## Original-source permission
 

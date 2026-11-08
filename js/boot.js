@@ -1,60 +1,12 @@
 // Boot layer: provides window.root (kv + generateText + textToImage) so the modular app can run in a plain browser.
 
 import { createTextAdapter } from "./llm.js";
-
-// Simple in-memory + localStorage kv adapter
-function makeKV() {
-  const stores = {};
-  function getStore(name) {
-    if (!stores[name]) {
-      try {
-        stores[name] = JSON.parse(localStorage.getItem("acc_kv_" + name) || "{}");
-      } catch {
-        stores[name] = {};
-      }
-    }
-    return stores[name];
-  }
-  function save(name) {
-    localStorage.setItem("acc_kv_" + name, JSON.stringify(stores[name]));
-  }
-  return new Proxy(
-    {},
-    {
-      get(_, name) {
-        return {
-          async get(key) {
-            return getStore(name)[key];
-          },
-          async set(key, value) {
-            getStore(name)[key] = value;
-            save(name);
-          },
-          async delete(key) {
-            delete getStore(name)[key];
-            save(name);
-          },
-          async entries() {
-            return Object.entries(getStore(name));
-          },
-          async keys() {
-            return Object.keys(getStore(name));
-          },
-          async deleteMany(keys) {
-            const s = getStore(name);
-            for (const k of keys) delete s[k];
-            save(name);
-          },
-        };
-      },
-    }
-  );
-}
+import { makeKV } from "./local-kv.js";
 
 const textAdapter = createTextAdapter({ storage: localStorage, origin: window.location.origin });
 
 window.root = {
-  kv: makeKV(),
+  kv: makeKV(localStorage),
   config: { seedPresetCharacters: true },
   generateText: textAdapter.generateText,
   stopAllTextGenerations: textAdapter.stopAll,

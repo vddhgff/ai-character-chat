@@ -4,6 +4,9 @@ const { parseHTML } = createRequire(import.meta.url)('linkedom');
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { createLocalFeatureUI } from '../js/local-features.js';
+import * as featureState from '../js/feature-state.js';
+import { fitFeatureToolbar } from '../js/toolbar-layout.js';
 import assert from 'node:assert/strict';
 const repo=fileURLToPath(new URL('..',import.meta.url));
 const read=p=>readFileSync(`${repo}/${p}`,'utf8');
@@ -15,7 +18,7 @@ window.innerWidth=1280; window.innerHeight=800;
 const folders=new Map();
 const kv=new Proxy({}, {get(_,name){if(!folders.has(name))folders.set(name,new Map());const m=folders.get(name);return {get:async k=>structuredClone(m.get(k)),set:async(k,v)=>m.set(k,structuredClone(v)),entries:async()=>structuredClone([...m]),keys:async()=>[...m.keys()],delete:async k=>m.delete(k),deleteMany:async ks=>ks.forEach(k=>m.delete(k))};}});
 window.root={kv,config:{seedPresetCharacters:false},stopAllTextGenerations(){}};
-globalThis.window=window;
+globalThis.window=window;globalThis.document=document;
 const store=await load(read('js/store.js').replace(/^import[^\n]+\n/m,'const presetCharacters=[];\n'));
 const {createAutoTalkController}=await load(read('js/autotalk.js'));
 await kv.misc.set('seeded',true);
@@ -26,7 +29,7 @@ await store.saveCharacter(char);await store.saveThread(thread);await store.setMe
 let generations=0;
 const errors=[];
 const escapeHtml=text=>String(text??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');
-const ctx=vm.createContext({window,document,store,...store,createAutoTalkController,presetCharacters:[],escapeHtml,renderMessage:escapeHtml,
+const ctx=vm.createContext({window,document,store,...store,createAutoTalkController,createLocalFeatureUI,fitFeatureToolbar,...featureState,presetCharacters:[],escapeHtml,renderMessage:escapeHtml,
   console:{...console,error:e=>errors.push(String(e))},URL,URLSearchParams,DOMException,Blob,performance,
   requestAnimationFrame:fn=>fn(),setTimeout,clearTimeout,navigator:{clipboard:{writeText:async()=>{}}},
   requestReply:async()=>{generations++;return {text:'Offline mock reply'};},extractImageRequest:text=>({text,imagePrompt:null}),
@@ -81,7 +84,31 @@ assert.ok(document.querySelector('#threadList').textContent.includes('Forest tri
 console.log('PASS: conditional three-thread search and matching thread filter');
 document.querySelector('[data-action="thread-menu"]').click();await tick();
 assert.ok(document.querySelector('.popover').textContent.includes('auto-talk'));
-assert.ok(document.querySelector('.popover button[disabled]'));
+assert.equal(document.querySelector('.popover button[disabled]'),null);
 assert.equal(errors.length,0,errors.join('\n'));
-console.log('PASS: full Options menu exposes unavailable features as disabled, not fake working actions');
-console.log('Six DOM integration checks passed. No rendering/pixel-layout claim is made.');
+console.log('PASS: formerly unavailable Options entries now expose local feature dialogs');
+vm.runInContext('closePopover()',ctx);
+await vm.runInContext('CLICK_ACTIONS["feature-mind"]()',ctx);await tick();
+let modal=document.querySelector('[role="dialog"]');
+modal.querySelector('[data-value]').value='A secret ambition to explore the sea.';
+modal.querySelector('[data-save-features]').click();await tick();
+assert.equal((await store.getThread('t')).features.innerLife,'A secret ambition to explore the sea.');
+assert.ok(vm.runInContext('featureInstructions(state.thread.features)',ctx).includes('secret ambition'));
+await vm.runInContext('localFeatures.save({responseLength:"short",narrator:"cinematic"})',ctx);
+assert.equal((await store.getThread('t')).features.responseLength,'short');
+await vm.runInContext('CLICK_ACTIONS["local-comments"]()',ctx);await tick();
+modal=document.querySelector('[role="dialog"]');modal.querySelector('[data-local-note]').value='A private local note.';
+modal.querySelector('[data-save-note]').click();await tick();
+assert.equal(await kv.misc.get('local-comments'),'A private local note.');
+console.log('PASS: inner-life/length/narrator settings and private comments persist through the actual UI');
+await vm.runInContext('CLICK_ACTIONS["generate-character"]()',ctx);await tick();
+modal=document.querySelector('[role="dialog"]');modal.querySelector('[data-gen-name]').value='Mira';modal.querySelector('[data-gen-brief]').value='A curious astronomer from a floating city.';
+modal.querySelector('[data-generate-character]').click();await tick();
+modal=document.querySelector('[role="dialog"]');assert.ok(modal.textContent.includes('New character'));
+assert.equal(modal.querySelector('[data-field="name"]').value,'Mira');
+modal.querySelector('[data-save]').click();await tick();
+assert.ok((await store.listCharacters()).some(c=>c.name==='Mira' && c.roleInstruction.includes('astronomer')));
+assert.equal(generations,3,'Local generation must not use the text provider');
+console.log('PASS: local character generation opens a reviewable draft and Save persists it without provider calls');
+assert.equal(errors.length,0,errors.join('\n'));
+console.log('Eight DOM integration checks passed. No rendering/pixel-layout claim is made.');

@@ -51,7 +51,7 @@ export function createTextAdapter({ storage, fetchImpl = (...args) => fetch(...a
         }
         const response = await fetchImpl(url, {
           method: "POST", headers, signal: controller.signal,
-          body: JSON.stringify({ model, messages: [{ role: "user", content: opts.instruction || "" }], temperature: 0.8, max_tokens: limits.maxOutputTokens }),
+          body: JSON.stringify({ model, messages: [{ role: "user", content: opts.instruction || "" }], temperature: 0.8, max_tokens: Number.isSafeInteger(opts.maxOutputTokens) && opts.maxOutputTokens > 0 ? Math.min(opts.maxOutputTokens, limits.maxOutputTokens) : limits.maxOutputTokens }),
         });
         checkStopped();
         if (!response.ok) throw new Error(await response.text());

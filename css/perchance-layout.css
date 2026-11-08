@@ -13,7 +13,7 @@ html,body { background:var(--background); color:var(--text-color); font-family:s
 #threadList .side-row { position:relative; align-items:stretch; padding:.5rem; border:1px solid var(--border-color); border-radius:3px; margin-top:.5rem; background:var(--box-color); gap:.5rem; }
 #threadList .side-row:first-child { margin-top:0; }
 #threadList .side-row.active { background:var(--selected-thread-bg); border-color:var(--selected-thread-border-color); }
-#threadList .side-row:hover { background:var(--box-color-hover); }
+@media (hover:hover) and (pointer:fine) { #threadList .side-row:hover { background:var(--box-color-hover); } }
 #threadList .avatar { width:50px !important; height:50px !important; border-radius:3px; border:0; }
 #threadList .side-row-text b { font-size:.8rem; }
 #threadList .side-row-text span { font-size:.8rem; color:inherit; }
@@ -57,7 +57,7 @@ main { position:relative; padding:0 .5rem; }
 .reference-send-column .options-control { min-width:80px; max-height:1.5rem; margin-top:.25rem; padding:.125rem; }
 .composer-hint { display:none; }
 button,.btn,.icon-btn,.btn.secondary,.icon-btn.primary,.btn.primary { background:var(--button-bg); color:var(--text-color); border:1px solid var(--button-border-color); border-radius:3px; padding:.125rem; min-height:0; font-size:var(--button-font-size); font-weight:normal; }
-button:hover,.btn:hover,.icon-btn:hover { background:var(--button-bg-hover); }
+@media (hover:hover) and (pointer:fine) { button:hover,.btn:hover,.icon-btn:hover { background:var(--button-bg-hover); } }
 button:disabled { cursor:not-allowed; }
 .btn.danger { background:var(--button-bg); color:#b30000; }
 .input,.textarea,#characterSearchInput,.field input,.field textarea,.field select { background:var(--textarea-bg); color:var(--text-color); border:1px solid var(--button-border-color); border-radius:3px; }
@@ -86,7 +86,7 @@ svg.i { width:16px; height:16px; min-width:16px; fill:none; stroke:currentColor;
  .reference-send-column .send-control,.reference-send-column .options-control { min-width:64px; }
  #app.sidebar-open #sidebarScrim { display:block; }
 }
-/* Remaining DESIGN 2 details and explicit disconnected-feature affordances. */
+/* DESIGN 2 details and independent local feature controls. */
 :root[data-theme="dark"] { --link-color:#3b7eff; }
 #threadSearchCtn { display:flex; gap:.5rem; margin-top:.5rem; }
 #threadSearchInput { min-width:0; flex:1; padding-left:.5rem; }
@@ -110,7 +110,7 @@ svg.i { width:16px; height:16px; min-width:16px; fill:none; stroke:currentColor;
 .modal-scrim { background:rgba(0,0,0,.5); }
 .modal-head .icon-btn { background:#9e9e9e; min-width:1.3rem; }
 .popover { border-radius:3px; padding:.5rem; background:var(--background); border:1px solid var(--border-color); max-height:80vh; overflow:auto; }
-.popover button { border:0; border-radius:0; padding:.25rem 0; margin:.125rem 0; }
+.popover button { border:0; border-radius:3px; padding:.25rem 0; margin:.125rem 0; }
 .popover button:disabled { opacity:.5; }
 .msg-actions button { opacity:.5; margin-left:1rem; }
 .msg-actions button:hover { opacity:1; }
@@ -120,9 +120,33 @@ svg.i { width:16px; height:16px; min-width:16px; fill:none; stroke:currentColor;
 .msg-content p code { padding:.125rem; }
 .msg-content table { border-collapse:collapse; }
 .msg-content th,.msg-content td { border:1px solid var(--border-color); }
-@media(max-width:1250px) { #threadFeatureToolbar #threadFreeWillCtn,#threadFeatureToolbar .threadFeatureSep:has(+ #threadFreeWillCtn) { display:none; } }
-@media(max-width:1150px) { #threadFeatureToolbar #threadNeedsCtn,#threadFeatureToolbar .threadFeatureSep:has(+ #threadNeedsCtn) { display:none; } }
-@media(max-width:1050px) { #threadFeatureToolbar #threadMindCtn,#threadFeatureToolbar .threadFeatureSep:has(+ #threadMindCtn) { display:none; } }
-@media(max-width:950px) { #threadFeatureToolbar #threadNarratorCtn,#threadFeatureToolbar .threadFeatureSep:has(+ #threadNarratorCtn) { display:none; } }
-@media(max-width:850px) { #threadFeatureToolbar #threadImaginationCtn,#threadFeatureToolbar .threadFeatureSep:has(+ #threadImaginationCtn) { display:none; } }
-@media(max-width:600px) { #threadFeatureToolbar #threadImaginationCtn,#threadFeatureToolbar #threadNarratorCtn,#threadFeatureToolbar #threadMindCtn,#threadFeatureToolbar #threadNeedsCtn,#threadFeatureToolbar #threadFreeWillCtn,#threadFeatureToolbar .threadFeatureSep { display:none; } #threadFeatureToolbar .internet-label { display:none; } .msg-actions { position:static; opacity:1; } }
+.local-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(100px,1fr)); gap:.5rem; margin-bottom:.5rem; }
+.local-gallery img { display:block; width:100%; max-height:150px; object-fit:contain; border-radius:3px; }
+
+/* Exact source arrangement: quick actions scroll with the feed; toolbar floats separately. */
+#sidebar { box-sizing:border-box; flex:0 0 270px; }
+#chatHeader { position:absolute; top:0; left:.5rem; right:.5rem; width:auto; height:2rem; min-height:0; margin:.5rem 0; padding:0; display:flex; flex-wrap:nowrap; gap:.5rem; pointer-events:none; z-index:2; }
+#chatHeader > * { pointer-events:auto; }
+#chatHeader #threadFeatureToolbar { margin-left:auto; height:100%; max-width:none; }
+#messageFeedTopQuickButtonsCtn { text-align:center; height:2rem; min-height:2rem; margin:.5rem; display:flex; align-items:center; justify-content:center; gap:.5rem; flex:0 0 auto; }
+#threadFeatureToolbar .threadFeatureGroup { border-radius:1.8px; }
+#threadFeatureToolbar .feature-label { border:0; background:transparent; padding:0; }
+.avatar,.mini-avatar,.char-card,.banner,.tag { border-radius:3px; }
+.avatar { background-color:var(--avatar-bg); background-position:center; background-size:cover; background-repeat:no-repeat; }
+#threadList .avatar { border:1px solid var(--border-color); }
+#composerInput { resize:none; }
+.toast { border-radius:6px; background:var(--box-color); color:var(--text-color); border:1px solid var(--border-color); padding:.4rem .8rem; font-size:85%; box-shadow:0 3px 12px rgba(0,0,0,.35); }
+.local-gallery button { border-radius:8px; }
+.local-gallery img { border-radius:4px; }
+.typing-bubble i { border-radius:2px; width:4px; height:4px; margin-right:2px; background:#90949c; animation:mercuryTypingAnimation 1.5s infinite ease-in-out; }
+@media (hover:hover) and (pointer:fine) { #threadFeatureToolbar .threadFeatureGroup:hover { background:rgba(128,128,128,.10); } .popover button:hover { background:var(--button-bg-hover); } }
+@media (hover:none), (pointer:coarse) { button:hover,.btn:hover,.icon-btn:hover { background:var(--button-bg); } #threadList .side-row:hover { background:var(--box-color); } #threadList .side-row.active:hover { background:var(--selected-thread-bg); } }
+@media(max-width:700px) { #sidebar { flex-basis:auto; } .msg-avatar .avatar { width:50px !important; height:50px !important; min-width:50px; } .msg-actions { position:static; opacity:1; } #messageFeedTopQuickButtonsCtn { gap:.5rem; } }
+
+#threadList .avatar { min-width:50px; }
+#threadList .side-row-text { max-width:150px; overflow:hidden; white-space:nowrap; }
+.mini-avatar { background-color:var(--avatar-bg); }
+.msg-images img { border-radius:3px; }
+.msg-content a { color:var(--link-color); }
+@media (hover:hover) and (pointer:fine) { .char-card:hover { background:var(--box-color-hover); } }
+@media (hover:none), (pointer:coarse) { .char-card:hover { background:var(--box-color); } }
