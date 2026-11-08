@@ -4,7 +4,7 @@ Reference: the user's **AI Character Chat — Complete Visual Design Spec** (DES
 
 ## Targeted design corrections
 
-- Edit-character/describe-yourself quick actions now scroll inside the message feed; a separate floating header contains the hamburger and feature toolbar. Toolbar controls progressively collapse by measured available width, in the original source's order, rather than fixed group-hiding breakpoints.
+- Edit-character/describe-yourself quick actions now scroll inside the message feed; a separate floating header contains the hamburger and feature toolbar. Toolbar controls progressively collapse by measured available width, in the original source's order, rather than fixed group-hiding breakpoints. A measured collision guard reserves the quick buttons' actual right edge, collapsing optional toolbar groups early so they cannot cover these controls; an empty toolbar frame is hidden. This is an intentional responsive adaptation, not a claim of identical placement at every viewport.
 - Sidebar is explicitly 270 CSS pixels including its 8px padding, with a fixed flex basis and border-box sizing. A saved screenshot is 1920×1200; a 1280-wide rendition scales a 270px rail to 180 image pixels. Do not enlarge the rail to compensate for screenshot rescaling.
 - Absent portraits are blank neutral 50px squares, not teal initials. Placeholder colors are #d3d3d3 (Light) / #3d3d3d (Dark), with 3px corners. Existing actual portraits remain intact.
 - Default interface corners are 3px; toolbar groups 1.8px, local gallery cards 8px, thumbnail placeholders 4px, toasts 6px, typing dots 2px. Source theme tokens are retained; inherited card-hover/link overrides are corrected. Hover fills are fine-pointer-only. Toast styling follows the spec's box-color toast, distinct from its blue notification token.
@@ -38,7 +38,7 @@ Storage is the existing `acc_kv_` **localStorage**, not a new backend or Indexed
 
 ## Validation
 
-- `npm test`: 26 tests, including the original 15 regression tests.
+- `npm test`: 27 tests, including the original 15 regression tests.
 - `npm run test:dom`: eight isolated DOM integration checks, including active Options dialogs, persistent notes/settings, local generation → editable draft → actual Save with zero provider calls.
 - Additional tests cover safe AI JSON, Stop/late results, prompt effects, output ceilings, remaining-context trimming, gallery validation, failed-storage behavior and per-thread isolation after navigation.
 - No real text/image provider request, credential entry or deletion of existing user data was used for these checks. Provider calls are mocked; paid/provider end-to-end behavior is not live-verified.

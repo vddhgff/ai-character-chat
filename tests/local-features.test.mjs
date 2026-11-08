@@ -72,3 +72,13 @@ test('feature saves remain isolated across threads and late navigation',async()=
  const pending=ui.save({innerLife:'saved on A'},'a');state.thread=structuredClone(rows.get('b'));await pending;
  assert.equal(rows.get('a').features.innerLife,'saved on A');assert.equal(state.thread.features.innerLife,'B');assert.equal(renders,1);
 });
+
+test('toolbar reserves quick-control space, hides empty frames and restores on widening',async()=>{
+ const {fitFeatureToolbar,TOOLBAR_DROP_ORDER}=await import('../js/toolbar-layout.js');
+ const groups=TOOLBAR_DROP_ORDER.filter(id=>id.endsWith('Ctn')).map(id=>({id,hidden:false}));
+ const toolbar={hidden:false,offsetWidth:0,clientWidth:0,querySelector(q){return groups.find(g=>q==='#'+g.id)||null;},querySelectorAll(q){return q==='.threadFeatureGroup'?groups:[];},get scrollWidth(){return 12+groups.filter(g=>!g.hidden).length*50;}};
+ const bar={clientWidth:900};
+ fitFeatureToolbar(bar,toolbar,170);assert.ok(toolbar.scrollWidth<=171);assert.equal(groups.filter(g=>!g.hidden).length,3);
+ fitFeatureToolbar(bar,toolbar,20);assert.equal(toolbar.hidden,true);
+ fitFeatureToolbar(bar,toolbar,900);assert.equal(toolbar.hidden,false);assert.equal(groups.filter(g=>!g.hidden).length,7);
+});

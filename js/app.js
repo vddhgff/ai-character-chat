@@ -30,7 +30,7 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 // Dev marker: bumped on every edit to this file. Lets a test harness confirm
 // the live preview is running the current source rather than a stale module.
-window.__accBuild = "local-features-v2";
+window.__accBuild = "local-features-v3";
 
 
 const ICON = {
@@ -351,7 +351,15 @@ function renderHeader() {
 }
 
 const localFeatures = createLocalFeatureUI({ state, store, newCharacter, showModal, escapeHtml, openCharacterEditor, reloadAll, renderHeader, renderSidebar, openLightbox, openAutoTalkSettings, toast });
-function updateFeatureToolbarLayout() { fitFeatureToolbar($("#chatHeader"), $("#threadFeatureToolbar")); }
+function updateFeatureToolbarLayout() {
+  const bar = $("#chatHeader"), toolbar = $("#threadFeatureToolbar");
+  if (!bar || !toolbar) return;
+  const quick = $("#messageFeedTopQuickButtonsCtn")?.lastElementChild;
+  const edge = quick?.getBoundingClientRect().right;
+  // Preserve the centered scrolling quick controls; collapse optional groups before they cover them.
+  const room = edge > 0 ? bar.getBoundingClientRect().right - edge - 8 : bar.clientWidth;
+  fitFeatureToolbar(bar, toolbar, room);
+}
 function featureToolbarHtml() {
   const f = localFeatures.current();
   const choices = (values, selected) => values.map(v => `<option value="${v}" ${v === selected ? "selected" : ""}>${v}</option>`).join("");

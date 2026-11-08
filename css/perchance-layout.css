@@ -150,3 +150,5 @@ svg.i { width:16px; height:16px; min-width:16px; fill:none; stroke:currentColor;
 .msg-content a { color:var(--link-color); }
 @media (hover:hover) and (pointer:fine) { .char-card:hover { background:var(--box-color-hover); } }
 @media (hover:none), (pointer:coarse) { .char-card:hover { background:var(--box-color); } }
+
+@media(max-width:700px) { #messageFeedTopQuickButtonsCtn { padding-left:2rem; } }
