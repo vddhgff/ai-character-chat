@@ -110,10 +110,13 @@ export async function requestReply({
   summaryUpTo = 0,
   onChunk,
   onStart,
+  speakerRole = "char",
 }) {
   const focus = focusCharacter;
   const instruction = [
-    buildSystemBlock({ characters, user }),
+    speakerRole === "user"
+      ? buildSystemBlock({ characters, user }).replace(`- Never write ${user.name}'s words, thoughts, or actions. The user writes those.`, `- The user explicitly requested a draft in ${user.name}'s voice. Write only that participant's next message.`)
+      : buildSystemBlock({ characters, user }),
     "# CONVERSATION SO FAR\n\n" +
       (buildChatLog(messages, summary, summaryUpTo) || "(The conversation has not started yet.)"),
     `TASK: Write the next message in the conversation, spoken by ${focus.name}. Output only ${focus.name}'s message.`,
@@ -126,7 +129,7 @@ export async function requestReply({
     stopSequences.push(`\n${c.name}:`);
     stopSequences.push(`\n*${c.name}`);
   }
-  if (user.name) stopSequences.push(`\n${user.name}:`);
+  if (user.name && speakerRole !== "user") stopSequences.push(`\n${user.name}:`);
 
   const promise = R().generateText({
     instruction,

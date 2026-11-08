@@ -76,7 +76,7 @@ test("UI Stop removes cancelled placeholder, skips subsequent cast, images, cust
   const adapter = createTextAdapter({ storage: storage(), fetchImpl: (_, opts) => { fetches++; abortSignal = opts.signal; return gate.promise; } });
   const state = { thread: { id: "t" }, userCharacter: { name: "You" }, messages: [], generationStopped: false, generating: false };
   globalThis.window = { root: adapter };
-  const ctx = vm.createContext({ state, window: { root: { stopAllTextGenerations: adapter.stopAll } }, DOMException, performance, console,
+  const ctx = vm.createContext({ state, autoTalk: { stop() {} }, window: { root: { stopAllTextGenerations: adapter.stopAll } }, DOMException, performance, console,
     threadCharacters: () => [{ name: "A", id: "a", autoImage: "always", customCode: "do not run" }, { name: "B", id: "b" }],
     requestReply: ai.requestReply, newMessage: (m) => ({ ...m, id: String(state.messages.length), content: m.content || "", images: [] }),
     persistMessages: async () => {}, renderMessages() {}, renderSidebar() {}, renderComposer() {},
@@ -123,7 +123,7 @@ test("light redesign migrates appearance once and preserves later choices", asyn
   const end = app.indexOf("    await reloadAll();", start);
   const migrate = `(async () => {${app.slice(start, end)}})()`;
   await vm.runInContext(migrate, ctx);
-  assert.equal(saved.theme, "light"); assert.equal(saved.fontSize, 13);
+  assert.equal(saved.theme, "light"); assert.equal(saved.fontSize, 16);
   assert.equal(saved.activeUserCharacterId, "my-persona"); assert.equal(saved.autoSummarize, false);
   saved = { ...saved, theme: "dark", fontSize: 17 };
   await vm.runInContext(migrate, ctx);
@@ -136,4 +136,15 @@ test("all app SVG icons have a bounded size and outlined style", () => {
   const rule = css.match(/svg\.i\s*\{([^}]+)\}/)?.[1] || "";
   assert.match(rule, /width:16px/); assert.match(rule, /height:16px/);
   assert.match(rule, /fill:none/); assert.match(rule, /stroke:currentColor/);
+});
+
+test('explicit user speaker drafts remove contradictory rules and self-stop sequence', async () => {
+  let request;
+  globalThis.window = { root: { generateText: (args) => { request = args; return Promise.resolve({ generatedText: 'Anon: A draft.' }); } } };
+  const result = await ai.requestReply({ speakerRole: 'user', focusCharacter: { id: 'u', name: 'Anon' }, characters: [{ id: 'c', name: 'Chloe' }], user: { name: 'Anon', description: 'Curious' }, messages: [] });
+  assert.equal(result.text, 'A draft.');
+  assert.ok(!request.instruction.includes('Never write Anon'));
+  assert.ok(request.instruction.includes('explicitly requested a draft'));
+  assert.ok(!request.stopSequences.includes('\nAnon:'));
+  assert.ok(request.stopSequences.includes('\nChloe:'));
 });

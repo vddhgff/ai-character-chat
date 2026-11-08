@@ -1,0 +1,579 @@
+/* Original MIT-licensed stylesheet from https://perchance.org/5shpo77nku, downloaded 2026-11-09.
+   Source layout explicitly grants the standard MIT license. Original rules retained below. */
+
+  hr {
+    height: 1px;
+    background: #d6d6d6;
+    font-size: 0;
+    border: 0;
+  }
+  :root {
+    color-scheme: dark light;
+  }
+  @media (prefers-color-scheme: dark) {
+    hr {
+      background: #4d4d4d;
+    }
+  }
+  
+  /* PERCHANCE EDIT */
+  body *:not(button) {
+    text-align: left; 
+  }
+  
+  .loading-animation-ctn { background-color: #cbcbcb; color: grey; }
+  .loading-animation-dot { animation: 1s loading-animation-blink infinite; fill: grey; }
+  .loading-animation-dot:nth-child(2) { animation-delay: 250ms }
+  .loading-animation-dot:nth-child(3) { animation-delay: 500ms }
+  @keyframes loading-animation-blink { 50% { fill: transparent }}
+  
+  :root, :root.light {
+    --background: #e8e8e8;
+    --button-bg: #c8c8c8;
+    --button-bg-hover: #b4b4b4;
+    --text-color: black;
+    --textarea-bg: #f1f1f1;
+    --selected-thread-bg: lightgray;
+    --border-color: #c8c8c8;
+    --border-radius: 3px;
+    --avatar-bg: lightgrey;
+    --notification-bg-color: #005ac2;
+    --button-border-color: #b4b4b4;
+    --button-font-size: 0.825rem;
+    --inline-reminder-message-default-visibility: hidden;
+    --shortcut-buttons-display: initial;
+    --link-color: blue;
+    --box-color: #f1f1f1;
+    --box-color-hover: #ffffff; 
+    --selected-thread-border-color: #909090;
+  }
+
+  
+
+  /* Detect browser dark mode and change variables */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: #151515;
+      --button-bg: #333;
+      --button-bg-hover: #444;
+      --text-color: #e9e9e9; /*#efefef;*/
+      --textarea-bg: #333;
+      --selected-thread-bg: #444;
+      --border-color: #333;
+      --avatar-bg: #3d3d3d;
+      --button-border-color: #515151;
+      --link-color: #3b7eff;
+      --box-color: #222222;
+      --box-color-hover: #333333;
+      --selected-thread-border-color: #606060;
+    }
+  }
+  
+  .inlineReminderMessage {
+    visibility: var(--inline-reminder-message-default-visibility);
+  }
+  
+  blockquote {
+    margin-left:1rem; 
+  }
+
+  body, html {
+    margin:0;
+    background: var(--background);
+    color: var(--text-color);
+    font-family: sans-serif;
+  }
+  body * {
+    box-sizing:border-box;
+    color: inherit;
+    font-family: inherit;
+  }
+  body a {
+    color: var(--link-color);
+  }
+
+  .messageText {
+    position: relative; 
+  }
+  .messageText pre[data-markdown-codeblock] {
+    font-family: monospace;
+    background: rgb(35 35 35);
+    padding: 0.5rem;
+    color: rgb(232, 232, 232);
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+  }
+  .messageText p code {
+    font-family: monospace;
+    background: rgb(35 35 35);
+    padding: 0.125rem;
+    color: rgb(232, 232, 232);
+    border-radius: var(--border-radius);
+  }
+  .messageText table {
+    border-collapse: collapse;
+  }
+  .messageText table, .messageText th, .messageText td {
+    border: 1px solid var(--border-color);
+  }
+  .messageText em, .messageText i {
+    opacity: 0.7;
+  }
+
+  
+
+  button {
+    background: var(--button-bg);
+    border-radius: var(--border-radius);
+    cursor:pointer;
+    padding: 0.125rem;
+    border: 1px solid var(--button-border-color);
+    font-size: var(--button-font-size);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    button:hover {
+      background: var(--button-bg-hover);
+    }
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+  textarea {
+    background: var(--textarea-bg);
+    border: 1px solid var(--button-border-color);
+    border-radius: var(--border-radius);
+  }
+
+  input[type="text"], input[type="password"], input[type="email"], input[type="number"], input[type="search"], input:not([type]), select {
+    background: var(--textarea-bg);
+    border: 1px solid var(--button-border-color);
+    border-radius: var(--border-radius);
+  }
+
+  #appOptions .appOptionButton {
+    width:100%;
+    cursor:pointer;
+    margin-top:0.5rem;
+    min-height: 2rem;
+  }
+  #chatThreads {
+    flex-grow:1;
+    overflow-y:auto;
+    margin-top:0.5rem;
+    -webkit-mask-image: linear-gradient(to bottom, black calc(100% - 30px), #ffffff00 100%);
+    mask-image: linear-gradient(to bottom, black calc(100% - 30px), #ffffff00 100%);
+    padding-bottom:2rem;
+  }
+  #chatThreads .thread, #chatThreads .threadFolder {
+    border-radius: var(--border-radius);
+    display:flex;
+    padding:0.5rem;
+    cursor:pointer;
+    border: 1px solid var(--border-color);
+    position: relative;
+    user-select:none;
+  }
+  #chatThreads .thread, #chatThreads .threadFolder {
+    margin-top: 0.5rem;
+    background: var(--box-color);
+  }
+  
+  @media (hover: hover) and (pointer: fine) {
+    #chatThreads .thread:hover, #chatThreads .threadFolder:hover {
+      background: var(--box-color-hover);
+    }
+  }
+  #chatThreads .thread:first-child, #chatThreads .threadFolder:first-child {
+    margin-top: 0;
+  }
+
+  #chatThreads .threadFolder {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  #chatThreads .thread .favStar, #chatThreads .thread .changeFolderPath {
+    position: absolute;
+    font-size: 80%;
+    opacity: 0.5;
+    display: none;
+    text-shadow: 0px 1px 2px #515151;
+  }
+  #chatThreads .thread .favStar {
+    top: 0.0625rem;
+    left: 0.0625rem;
+  }
+  #chatThreads .thread .changeFolderPath {
+    bottom: 0.0625rem;
+    left: 0.0625rem;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    body:not(.isMobile) #chatThreads .thread .favStar:hover { opacity: 1; }
+    body:not(.isMobile) #chatThreads .thread .duplicateThreadBtn:hover { opacity: 1; }
+    #chatThreads .thread .changeFolderPath:hover { opacity: 1; }
+    #chatThreads .thread:hover .favStar, #chatThreads .thread:hover .changeFolderPath { display: inline; }
+  }
+  
+  /* can't hover on mobile, so display button on selected thread: */
+  body.isMobile #chatThreads .thread.selected .favStar, body.isMobile #chatThreads .thread.selected .changeFolderPath {
+    display: inline;
+  }
+  #chatThreads .thread .favStar[data-is-fav="true"] {
+    opacity: 1;
+    display: inline;
+  }
+
+  #chatThreads .thread:not(:first-child) {
+    margin-top: 0.5rem;
+  }
+  #chatThreads .thread .button {
+    opacity:0.5;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    #chatThreads .thread .button:hover {
+      opacity:1;
+    }
+  }
+  #chatThreads .thread.selected {
+    background-color: var(--selected-thread-bg);
+  }
+  #chatThreads .thread.selected {
+    border-color: var(--selected-thread-border-color);
+  }
+  #chatThreads .thread .info {
+    max-width: 100%;
+  }
+  #chatThreads .thread .nameWrapper {
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 150px;
+    display: flex;
+  }
+  #chatThreads .thread .name {
+    /* truncate long thread names */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-grow: 1;
+  }
+  #chatThreads .thread .avatar, #characterSelection  .character .avatar {
+    width:50px;
+    height:50px;
+    border-radius: var(--border-radius);
+    min-width:50px;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-color: var(--avatar-bg);
+  }
+  #messageFeed .message .avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: var(--border-radius);
+    min-width: 50px;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-color: var(--avatar-bg);
+  }
+  #chatThreads .characterEditButton {
+    font-size: 0.65rem;
+    opacity: 0.5;
+  }
+  
+  @media (hover: hover) and (pointer: fine) {
+    #chatThreads .characterEditButton:hover {
+      opacity: 1;
+    }
+  }
+
+  /* hide threads scrollbar */
+  #chatThreads {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  #chatThreads::-webkit-scrollbar { 
+    display: none;  /* Safari and Chrome */
+  }
+
+  /* hide message feed scrollbar */
+  /* #messageFeed {
+    -ms-overflow-style: none; 
+    scrollbar-width: none; 
+  }
+  #messageFeed::-webkit-scrollbar { 
+    display: none;  
+  } */
+
+  /* custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background-color: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--button-bg);
+    border-radius: 10px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--button-bg-hover);
+  }
+
+
+  #builtInChatInterfaceWrapper {
+    display: flex;
+    flex-grow: 1;
+    flex-direction: column;
+    height: 100%;
+    position:relative;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  #messageFeed .message {
+    margin-top:0.5rem;
+    margin-bottom:0.5rem;
+  }
+
+  #messageFeed .message .bottomButtons {
+    display:none;
+    position:absolute;
+    bottom: 0rem;
+    right: 0.5rem;
+    z-index:10;
+  }
+  #messageFeed .message:hover .bottomButtons {
+    display: flex;
+  }
+  .emojiButton {
+    opacity:0.5;
+    cursor:pointer;
+  }
+  
+  @media (hover: hover) and (pointer: fine) {
+    .emojiButton:hover {
+      opacity:1;
+    }
+  }
+  
+  /* this is a bit too 'magic' for my liking, but it just hides any hidden messsage that has a hidden message immediately after it, so to see the earlier hidden message, they first need to display the one below it (prevents a wall of "show hidden messages" buttons  */
+  #messageFeed .message.hiddenFromUser:has(+ .message.hiddenFromUser) {
+    display: none;
+  }
+  
+  #messageFeed .message.hiddenFromUser .showHiddenMessageButton {
+    display: inline-block;
+    color: var(--text-color);
+  }
+  #messageFeed .message:not(.hiddenFromUser) .showHiddenMessageButton {
+    display: none;
+  }
+  #messageFeed .message.hiddenFromUser .messageWrap {
+    display: none;
+  }
+  #messageFeed .message:not(.hiddenFromUser) .messageWrap {
+    display: flex;
+  }
+  #messageFeed .messageText p {
+    white-space: pre-wrap;
+  }
+  #messageFeed .messageText {
+    margin-top: 0.125rem;
+    overflow: hidden; /* keep messageText content from "escaping" the message area */
+  }
+  #messageFeed .messageText p:first-child {
+    margin-top:0;
+  }
+  #messageFeed .messageText p:last-child {
+    margin-bottom:0;
+  }
+  #messageFeed .messageText img {
+    max-width: 100%;
+    height: auto;
+  }
+  /* Keep finished image tiles cheap when off-screen so image-heavy chats scroll smoothly. */
+  #messageFeed .generated-image-container img {
+    content-visibility: auto;
+    contain-intrinsic-size: 450px 450px;
+    cursor: zoom-in;
+  }
+  #t2iLightbox {
+    position: fixed; inset: 0; z-index: 99999999;
+    background: rgba(0,0,0,0.9); display: flex;
+    align-items: center; justify-content: center; cursor: zoom-out;
+  }
+  #t2iLightbox img { max-width: 96vw; max-height: 96vh; object-fit: contain; }
+  #messageFeed .generated-image-container iframe {
+    content-visibility: auto;
+    contain-intrinsic-size: 300px 450px;
+  }
+  #messageFeed .message .avatar {
+
+  }
+
+  /* prevent custom message styles from messing with inline message editor */
+  #messageFeed .message textarea { color:revert; }
+  #messageFeed .message button { color:revert; font-family:revert; }
+  #messageFeed .message .messageVariantsCtn { color:var(--text-color) !important; font-family:sans-serif !important; text-shadow:none !important; }
+
+  #messageFeed > *:first-child {
+    /* PERCHANCE EDIT */
+    /* margin-top: 3rem; */
+  }
+
+  #characterFoldersList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 280px);
+    grid-gap: 0.5rem;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+  #characterFoldersList .characterFolder {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    width: 100%;
+    padding:0.5rem;
+    cursor:pointer;
+    user-select:none;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    #characterSelection .character:hover {
+      background: var(--box-color-hover); 
+    }
+  }
+  #characterSelection .character {
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    width: 100%;
+    background: var(--box-color); 
+  }
+  #characterSelection .character .info .buttons {
+    margin-top: 0.25rem;
+  }
+  #characterSelection .character .info .buttons button {
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+  }
+  #characterList, #starterCharacterList {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, 280px);
+    grid-gap: 0.5rem;
+    justify-content: center;
+  }
+  #characterFoldersList .characterFolder {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #characterSelection .character {
+    user-select:none;
+  }
+
+  #customCodeIframeHorizontalResizeBar {
+    width:5px;
+    background:var(--button-bg);
+    cursor:ew-resize;
+  }
+  
+  @media (hover: hover) and (pointer: fine) {
+    #customCodeIframeHorizontalResizeBar:hover {
+      background:var(--button-bg-hover);
+    }
+  }
+
+  #userMessagesSentHistoryCtn {
+    z-index: 10;
+    bottom:0.25rem;
+    position:relative;
+  }
+  #userMessagesSentHistoryCtn:empty {
+    display: none;
+  }
+  #userMessagesSentHistoryCtn .historyItem {
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 85%;
+    overflow: hidden;
+    white-space: pre;
+    display: flex;
+  }
+  #userMessagesSentHistoryCtn .historyItem .text {
+    text-overflow: ellipsis;
+    overflow: hidden;
+    margin-left: 0.25rem;
+  }
+  #userMessagesSentHistoryCtn .historyItem .deleteButton {
+    margin-left: auto;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    #userMessagesSentHistoryCtn .historyItem:hover {
+      background: var(--background);
+    }
+  }
+  #userMessagesSentHistoryCtn .historyItem .pinButton,
+  #userMessagesSentHistoryCtn .historyItem .deleteButton {
+    opacity: 0.5;
+  }
+  #userMessagesSentHistoryCtn .historyItem[data-is-pinned="true"] .pinButton {
+    opacity: 1;
+  }
+  
+  @media (hover: hover) and (pointer: fine) {
+    body:not(.isMobile) #userMessagesSentHistoryCtn .historyItem .pinButton:hover,
+    body:not(.isMobile) #userMessagesSentHistoryCtn .historyItem .deleteButton:hover {
+      opacity: 1;
+    }
+  }
+
+  #shortcutButtonsCtn {
+    margin-bottom:0.25rem;
+    position:relative;
+    overflow-y: auto;
+    display: var(--shortcut-buttons-display); /* so we can make it invisible until they've sent at least a few messages - to reduce clutter */
+  }
+  #shortcutButtonsCtn:empty {
+    display:none;
+  }
+
+  #shortcutButtonsCtn button:first-child {
+    /* the bulk edit button */
+    border: none;
+    background: transparent;
+  }
+  #shortcutButtonsCtn button:not(:first-child) {
+    margin-left:0.25rem;
+    padding-left: 0.3rem; 
+    padding-right: 0.3rem; 
+  }
+  
+  #threadOptionsPopup button {
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem; 
+  }
+
+  /* typing indicator from https://codepen.io/arthak/pen/rmqvgo */
+  .tiblock { align-items: center; display: flex; height: 17px; }
+  .ticontainer{ display: inline-block; }
+  .ticontainer .tidot { background-color: #90949c;  }
+  .tidot { animation: mercuryTypingAnimation 1.5s infinite ease-in-out; border-radius: 2px; display: inline-block; height: 4px; margin-right: 2px; width: 4px; }
+  @keyframes mercuryTypingAnimation{ 0%{ -webkit-transform:translateY(0px); transform:translateY(0px); } 28% { transform:translateY(-5px); } 44%{ transform:translateY(0px); } } .tidot:nth-child(1){ animation-delay:200ms; } .tidot:nth-child(2){ animation-delay:300ms; } .tidot:nth-child(3){ animation-delay:400ms; }
+  
+  
+  @keyframes rotate {
+    to { transform: rotate(360deg); }
+  }
+  
+  .rotate-jiggle {
+    animation: rotate-jiggle 0.2s infinite;
+    transform: rotate(-1deg);
+  }
+  @keyframes rotate-jiggle {
+    0% { transform: rotate(-1deg); }
+    50% { transform: rotate(1deg); }
+  }

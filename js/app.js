@@ -20,13 +20,14 @@ import {
 } from "./ai.js";
 import { createOc, runCustomCode } from "./customcode.js";
 import { presetCharacters } from "./presets.js";
+import { createAutoTalkController } from "./autotalk.js";
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
 // Dev marker: bumped on every edit to this file. Lets a test harness confirm
 // the live preview is running the current source rather than a stale module.
-window.__accBuild = "b6";
+window.__accBuild = "perchance-source-v1";
 
 
 const ICON = {
@@ -72,7 +73,10 @@ const state = {
   sidebarOpen: false,
   view: "empty",
   characterSearch: "",
+  threadSearch: "",
   summarizing: false,
+  composerDrafts: new Map(),
+  autoTalkOptions: { maxMessages: 25, pauseMs: 2000 },
 };
 
 const config = () => window.root.config || {};
@@ -139,7 +143,7 @@ function showPopover(anchor, items) {
     .map((it, i) =>
       it === "hr"
         ? "<hr>"
-        : `<button type="button" data-i="${i}" class="${it.danger ? "danger" : ""}">${escapeHtml(
+        : `<button type="button" data-i="${i}" class="${it.danger ? "danger" : ""}" ${it.disabled ? "disabled" : ""} title="${escapeHtml(it.title || "")}">${escapeHtml(
             it.label
           )}</button>`
     )
@@ -156,7 +160,7 @@ function showPopover(anchor, items) {
     if (!b) return;
     const item = items[Number(b.dataset.i)];
     closePopover();
-    item?.onSelect?.();
+    if (!item?.disabled) item?.onSelect?.();
   });
   currentPopover = el;
   setTimeout(() => document.addEventListener("click", onDocClickClosePopover, { once: true }), 0);
@@ -273,28 +277,16 @@ function threadTitle(thread) {
 
 function renderSidebar() {
   const threadsEl = $("#threadList");
-  if (state.threads.length === 0) {
-    threadsEl.innerHTML = `<div class="side-empty">No chats yet. Pick a character below to begin.</div>`;
-  } else {
-    threadsEl.innerHTML = state.threads
-      .map((t) => {
-        const names = t.characterIds.map((id) => charById(id));
-        const first = names[0];
-        const active = state.thread?.id === t.id;
-        return `<div class="side-row ${active ? "active" : ""}" data-action="open-thread" data-id="${
-          t.id
-        }" role="button" tabindex="0">
-          ${avatarHtml(first?.name || "?", first?.avatarUrl, 32)}
-          <span class="side-row-text"><b>${escapeHtml(threadTitle(t))}</b><span>${escapeHtml(
-          t.preview || `${names.length} character${names.length === 1 ? "" : "s"}`
-        )}</span></span>
-          <button class="side-row-x" data-action="delete-thread" data-id="${
-            t.id
-          }" title="Delete chat">${svg("trash")}</button>
-        </div>`;
-      })
-      .join("");
-  }
+  $("#threadSearchCtn").hidden = state.threads.length < 3 && !state.threadSearch;
+  const search = state.threadSearch.trim().toLowerCase();
+  threadsEl.innerHTML = state.threads.filter(t => !search || `${threadTitle(t)} ${t.preview || ""}`.toLowerCase().includes(search)).map((t, i) => {
+    const first = charById(t.characterIds[0]);
+    return `<div class="side-row ${state.thread?.id === t.id ? "active" : ""}" data-action="open-thread" data-id="${t.id}" role="button" tabindex="0">
+      ${avatarHtml(first?.name || "?", first?.avatarUrl, 50)}
+      <span class="side-row-text"><b>${escapeHtml(t.title || "Unnamed Thread")}</b><span>${escapeHtml(first?.name || "Character")} #${i + 1}</span><span class="thread-id">🧵#${i + 1}</span></span>
+      <span class="thread-tools"><button data-action="thread-card-menu" data-id="${t.id}" title="Thread options">⿻</button><button data-action="rename-thread" data-id="${t.id}" title="Rename thread">🏷️</button><button data-action="export-thread-card" data-id="${t.id}" title="Export thread">💾</button><button data-action="delete-thread" data-id="${t.id}" title="Delete thread">🗑️</button></span>
+    </div>`;
+  }).join("") + `<div class="data-notice"><p style="margin-top:0">Note: Your chat data is stored <b>completely privately</b> in your browser storage — <b>not</b> on a server. If you clear your browser data, your chats will be lost.</p><p>Use the <b>export</b> button below to regularly save backups to your downloads folder.</p><p>Only messages you choose to generate are sent to your configured AI provider.</p></div>`;
 
   const charsEl = $("#characterList");
   const q = state.characterSearch.trim().toLowerCase();
@@ -319,7 +311,7 @@ function renderSidebar() {
         )}</span></span>
           <button class="side-row-x" data-action="edit-character" data-id="${
             c.id
-          }" title="Edit">${svg("edit")}</button>
+          }" title="Edit">✏️</button>
         </div>`
       )
       .join("");
@@ -360,25 +352,22 @@ function renderHeader() {
     `;
     return;
   }
-  const chars = threadCharacters();
-  header.innerHTML = `
-    <button class="icon-btn" id="menuBtn" data-action="toggle-sidebar" aria-label="Menu">${svg("menu")}</button>
-    <div class="chat-header-info">
-      <div class="avatar-stack">${chars
-        .slice(0, 4)
-        .map((c) => avatarHtml(c.name, c.avatarUrl, 32))
-        .join("")}</div>
-      <div class="chat-header-text">
-        <b>${escapeHtml(threadTitle(state.thread))}</b>
-        <span>${escapeHtml(
-          chars.length > 1
-            ? `Group chat · ${chars.length} characters`
-            : chars[0]?.tagline || "character"
-        )}</span>
-      </div>
-    </div>
-    <button class="icon-btn" data-action="thread-menu" aria-label="Chat options">⚒️ <span>Options</span></button>
-  `;
+  const first = threadCharacters()[0];
+  header.innerHTML = `<button class="icon-btn" id="menuBtn" data-action="toggle-sidebar" aria-label="Menu">☰</button>
+    <div class="reference-header-buttons"><button data-action="edit-character" data-id="${first?.id || ""}">edit character</button><button data-action="edit-user">describe yourself</button></div>${featureToolbarHtml()}`;
+  $("#app").classList.toggle("hide-chat-avatars", !!state.thread.hideAvatars);
+}
+
+function featureToolbarHtml() {
+  const offline = "This Perchance feature is not connected in this project.";
+  return `<div id="threadFeatureToolbar" aria-label="Thread feature toolbar">
+    <div id="threadWebCtn" class="threadFeatureGroup" title="${offline}"><span>🔎<span class="internet-label"> internet</span></span><button disabled title="${offline}">⚙️</button></div><div class="threadFeatureSep"></div>
+    <div id="threadArtStyleCtn" class="threadFeatureGroup"><span>🎨</span><select data-character-art-style title="Art style saved on the current character"><option value="">default</option>${["anime", "photorealistic", "watercolor", "oil painting", "pixel art"].map(v => `<option value="${v}" ${threadCharacters()[0]?.imageStyle === v ? "selected" : ""}>${v}</option>`).join("")}${threadCharacters()[0]?.imageStyle && !["anime", "photorealistic", "watercolor", "oil painting", "pixel art"].includes(threadCharacters()[0].imageStyle) ? `<option selected value="${escapeHtml(threadCharacters()[0].imageStyle)}">custom style</option>` : ""}</select><button disabled title="Perchance's example-image gallery is not connected.">🖼️</button><button data-action="random-art-style" title="Pick a random art style">🎲</button></div><div class="threadFeatureSep"></div>
+    <div id="threadImaginationCtn" class="threadFeatureGroup" title="${offline}"><span>✨</span><select disabled aria-label="Imagination flavor"><option>imagination</option></select><button disabled>🎲</button><button disabled>⚙️</button></div><div class="threadFeatureSep"></div>
+    <div id="threadNarratorCtn" class="threadFeatureGroup"><span>🎭</span><select disabled title="Advanced narrator voices are not connected."><option>Narrator</option></select><button data-action="narrator-info" title="Narrator information">⚙️</button></div><div class="threadFeatureSep"></div>
+    <div id="threadMindCtn" class="threadFeatureGroup" title="${offline}"><span>🧠</span><button disabled>💭</button></div><div class="threadFeatureSep"></div>
+    <div id="threadNeedsCtn" class="threadFeatureGroup" title="${offline}"><span>🍗💧</span></div><div class="threadFeatureSep"></div>
+    <div id="threadFreeWillCtn" class="threadFeatureGroup" title="${offline}"><span>🕊️</span></div></div>`;
 }
 
 function messageHtml(m) {
@@ -425,15 +414,13 @@ function messageHtml(m) {
       <div class="msg-actions">
         ${
           m.role === "char" && !m.streaming
-            ? `<button class="msg-action" data-action="msg-reroll" title="Write a different reply">${svg(
-                "refresh"
-              )}</button>`
+            ? `<button class="msg-action" data-action="msg-reroll" title="Write a different reply">🔁</button>`
             : ""
         }
-        <button class="msg-action" data-action="msg-illustrate" title="Add a picture">${svg("image")}</button>
-        <button class="msg-action" data-action="msg-copy" title="Copy">${svg("copy")}</button>
-        <button class="msg-action" data-action="msg-edit" title="Edit">${svg("edit")}</button>
-        <button class="msg-action" data-action="msg-delete" title="Delete">${svg("trash")}</button>
+        <button class="msg-action" data-action="msg-illustrate" title="Add a picture">🖼️</button>
+        <button class="msg-action" data-action="msg-copy" title="Copy">📋</button>
+        <button class="msg-action" data-action="msg-edit" title="Edit">✏️</button>
+        <button class="msg-action" data-action="msg-delete" title="Delete">🗑️</button>
       </div>
     </div>
   </div>`;
@@ -469,44 +456,90 @@ function scrollChatToBottom(smooth = false) {
 
 function composerHtml() {
   const chars = threadCharacters();
-  const names = chars.map((c) => c.name).join(", ") || "your character";
-  return `<div class="composer-inner">
-    <textarea id="composerInput" rows="1" placeholder="Message ${escapeHtml(
-      names.split(",")[0]
-    )}…" autocomplete="off"></textarea>
-    <button class="icon-btn" data-action="composer-image" title="Insert a picture" aria-label="Insert a picture">🖼️</button>
-    ${
-      state.generating
-        ? `<button class="icon-btn" data-action="stop" title="Stop">${svg("stop")}<span>Stop</span></button>`
-        : `<button class="icon-btn primary" data-action="send" title="Send">${svg("send")}<span>Send</span></button>`
-    }
-  </div>
-  <div class="composer-hint">Enter to send · Shift+Enter for a new line${
-    state.summarizing ? " · folding old messages into memory…" : ""
-  }</div>`;
+  const talk = autoTalk.state();
+  const userName = state.userCharacter?.name || "Anon";
+  return `<div id="autoTalkBar"><button data-action="autotalk-start" ${talk.running ? "disabled" : ""}>🎭 let them talk</button>
+    ${talk.running ? `<button data-action="autotalk-pause">${talk.paused ? "▶ resume" : "⏸ pause"}</button>` : ""}
+    <button data-action="autotalk-settings" title="Auto-talk settings">⚙️</button>
+    <span id="autoTalkStatus">${talk.running ? `${talk.paused ? "Paused · " : ""}${talk.completed}/${talk.maxMessages} messages` : `${escapeHtml(chars.map(c => c.name).join(", "))} · up to ${state.autoTalkOptions.maxMessages} messages`}</span></div>
+    <div id="shortcutButtonsCtn"><button data-action="shortcut-menu" title="Edit shortcuts">✏️</button>
+      ${chars.map(c => `<button data-action="speaker-reply" data-id="${c.id}" ${state.generating ? "disabled" : ""}>🗣️ ${escapeHtml(c.name)}</button>`).join("")}
+      <button data-action="speaker-user" ${state.generating ? "disabled" : ""}>🗣️ ${escapeHtml(userName)}</button><button data-action="speaker-narrator" ${state.generating ? "disabled" : ""}>🗣️ Narrator</button><button data-action="composer-image" ${state.generating ? "disabled" : ""}>🖼️ Image</button></div>
+    <div class="composer-inner"><textarea id="composerInput" data-thread-id="${state.thread?.id || ""}" rows="3" placeholder="Type your reply here..." autocomplete="off"></textarea>
+      <div class="reference-send-column">${state.generating || talk.running
+        ? `<button class="send-control" data-action="stop">⏹ stop</button>`
+        : `<button class="send-control" data-action="send">send ➡️</button>`}
+        <button class="options-control" data-action="thread-menu">⚒️ options</button></div></div>`;
 }
 
 function renderComposer() {
   const composer = $("#composer");
-  if (state.view !== "chat") {
-    composer.innerHTML = "";
-    composer.hidden = true;
-    return;
-  }
-  composer.hidden = false;
-  composer.innerHTML = composerHtml();
+  const old = $("#composerInput");
+  if (old?.dataset.threadId) state.composerDrafts.set(old.dataset.threadId, old.value);
+  const hadFocus = old && document.activeElement === old;
+  const selection = old ? [old.selectionStart, old.selectionEnd] : [0, 0];
+  if (state.view !== "chat") { composer.innerHTML = ""; composer.hidden = true; return; }
+  composer.hidden = false; composer.innerHTML = composerHtml();
   const input = $("#composerInput");
-  input.addEventListener("input", () => {
-    input.style.height = "auto";
-    input.style.height = `${Math.min(input.scrollHeight, 190)}px`;
-  });
+  input.value = state.composerDrafts.get(state.thread?.id) || "";
+  const resize = () => { input.style.height = "auto"; input.style.height = `${Math.min(input.scrollHeight, window.innerHeight * .6)}px`; };
+  resize();
+  input.addEventListener("input", () => { state.composerDrafts.set(input.dataset.threadId, input.value); resize(); });
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey && state.settings.enterToSend) {
-      e.preventDefault();
-      sendCurrent();
-    }
+    if (e.key === "Enter" && !e.shiftKey && !e.isComposing && state.settings.enterToSend) { e.preventDefault(); sendCurrent(); }
   });
-  if (!state.generating) setTimeout(() => input.focus(), 20);
+  if (hadFocus) { input.focus(); input.setSelectionRange(...selection); }
+}
+
+const autoTalk = createAutoTalkController({
+  step: async (character, threadId) => {
+    if (state.thread?.id !== threadId || state.view !== "chat") return false;
+    setGenerating(true);
+    try { return await generateFor(character); }
+    finally { setGenerating(false); renderSidebar(); }
+  },
+  abort: () => { state.generationStopped = true; state.stopCurrent?.(); window.root.stopAllTextGenerations?.(); },
+  onChange: () => { if (state.view === "chat") renderComposer(); },
+  onError: (error) => { console.error(error); toast("Auto-talk stopped after an error.", "error"); },
+});
+
+async function generateSpeaker(character, speakerRole = "char") {
+  if (state.generating || !state.thread) return;
+  await autoTalk.stop();
+  setGenerating(true);
+  try { await generateFor(character, { speakerRole }); }
+  finally { setGenerating(false); renderSidebar(); }
+  if (!state.generationStopped) backgroundSummarize().catch(console.error);
+}
+
+function openAutoTalkSettings() {
+  showModal({ title: "🎭 Let them talk", body: `<p>Characters take turns without a user message. Each generated reply uses your configured AI provider and may incur its usual charges. Nothing starts until you press Start.</p>
+    <p>Current participants: ${escapeHtml(threadCharacters().map(c => c.name).join(", ") || "none")}. Add characters from ⚒️ options.</p>
+    <div class="field"><label>Maximum messages (1–100)</label><input class="input" id="autoTalkMax" type="number" min="1" max="100" value="${state.autoTalkOptions.maxMessages}"></div>
+    <div class="field"><label>Pause between replies (0–60 seconds)</label><input class="input" id="autoTalkDelay" type="number" min="0" max="60" value="${state.autoTalkOptions.pauseMs / 1000}"></div>
+    <p>Pause suspends the next turn. Stop cancels the current request. Switching chats or pages also stops the run. Runs never resume after a reload.</p>`,
+    footer: `<button class="btn" data-close>Cancel</button><button class="btn" data-save>Save</button>`,
+    onMount: (el, close) => { $("[data-save]", el).onclick = () => {
+      const maxMessages = Number($("#autoTalkMax", el).value), seconds = Number($("#autoTalkDelay", el).value);
+      if (!Number.isInteger(maxMessages) || maxMessages < 1 || maxMessages > 100 || !Number.isFinite(seconds) || seconds < 0 || seconds > 60) { toast("Choose 1–100 messages and a pause of 0–60 seconds.", "error"); return; }
+      state.autoTalkOptions = { maxMessages, pauseMs: seconds * 1000 }; close(); renderComposer();
+    }; },
+  });
+}
+
+async function startAutoTalk() {
+  if (state.generating || autoTalk.state().running || !state.thread) return;
+  const characters = threadCharacters();
+  if (characters.length < 2) { toast("Add a second character from ⚒️ options → Add a character first."); return; }
+  const threadId = state.thread.id;
+  if (!await confirmDialog({ title: "🎭 Let them talk", message: `Generate up to ${state.autoTalkOptions.maxMessages} alternating character replies? Your configured provider may charge for each reply. Pause or Stop at any time.`, confirmText: "Start" })) return;
+  if (state.thread?.id !== threadId || state.generating || state.view !== "chat") return;
+  await autoTalk.start({ characters, threadId, ...state.autoTalkOptions });
+  if (state.thread?.id === threadId && !state.generationStopped) backgroundSummarize().catch(console.error);
+}
+
+function openSettingsDialog() {
+  showModal({ title: "⚙️ Settings", body: `<div class="settings-dialog">${settingsHtml()}</div>`, wide: true });
 }
 
 function renderMain() {
@@ -550,7 +583,9 @@ function discoverHtml() {
   return `<div class="view">
     <h2>Starter characters</h2>
     <p class="sub">Click one to copy it into your library and start chatting. You can edit anything about it afterwards.</p>
-    <div class="card-grid">
+    <div class="card-grid"><button class="char-card" data-action="new-character"><b>✏️ create a character</b></button>
+      ${state.characters.map(c => `<div class="char-card"><button data-action="start-chat" data-id="${c.id}">${avatarHtml(c.name, c.avatarUrl, 50)} ${escapeHtml(c.name)}</button><p>${escapeHtml(c.tagline || "Saved character")}</p><button data-action="edit-character" data-id="${c.id}">edit character</button></div>`).join("")}</div>
+    <h3>Character templates</h3><div class="card-grid">
       ${presetCharacters
         .map(
           (p) => `<button class="char-card" data-action="add-preset" data-id="${p.id}">
@@ -657,6 +692,7 @@ async function persistMessages({ preview = true } = {}) {
 }
 
 async function openThread(id) {
+  await autoTalk.stop();
   const thread = await store.getThread(id);
   if (!thread) return;
   state.thread = thread;
@@ -668,6 +704,7 @@ async function openThread(id) {
 }
 
 async function startChat(characterIds, { open = true } = {}) {
+  await autoTalk.stop();
   const ids = [...new Set(characterIds)].filter(Boolean);
   if (ids.length === 0) return null;
   let thread = await store.findThreadForCharacters(ids);
@@ -705,8 +742,23 @@ async function newCharAndEdit() {
 
 function openThreadMenu(anchor) {
   showPopover(anchor, [
+    { label: "🚫👤 toggle pics", onSelect: async () => { state.thread.hideAvatars = !state.thread.hideAvatars; await store.saveThread(state.thread); renderHeader(); } },
+    { label: "🪪 describe yourself…", onSelect: openPersonaEditor },
+    { label: "👤 change user pic", onSelect: openPersonaEditor },
+    { label: `🗣️ toggle autoreply (${state.thread.autoReply === false ? "off" : "on"})`, onSelect: async () => { state.thread.autoReply = state.thread.autoReply === false; await store.saveThread(state.thread); } },
+    { label: "🎭 auto-talk & who talks…", onSelect: openAutoTalkSettings },
+    { label: "✨ imagination…", disabled: true, title: "Perchance imagination is not connected." },
+    { label: "🎭 narrator…", onSelect: () => CLICK_ACTIONS["narrator-info"]() },
+    { label: "🎬 image direction…", disabled: true, title: "Standing image-direction instructions are not implemented." },
+    { label: "🔎 image research…", disabled: true, title: "Perchance image research is not connected." },
+    { label: "🧠 inner lives…", disabled: true, title: "Perchance inner-life simulation is not connected." },
+    { label: "🕊️ free will…", disabled: true, title: "Background autonomous activity is not implemented; use bounded auto-talk." },
+    { label: "📏 response length…", disabled: true, title: "Reply maximum is 2,048 tokens; source response-length profiles are not implemented." },
+    { label: "✏️ edit character", onSelect: () => { const c = threadCharacters()[0]; if (c) openCharacterEditor(c); } },
+    { label: "💬 reply as…", onSelect: () => toast("Use the 🗣️ buttons above the composer to choose a speaker.") },
+    "hr",
     {
-      label: "Rename chat",
+      label: "🏷️ Rename chat",
       onSelect: async () => {
         const title = await promptDialog({
           title: "Rename chat",
@@ -721,7 +773,7 @@ function openThreadMenu(anchor) {
       },
     },
     {
-      label: "Add character to chat",
+      label: "➕ add character",
       onSelect: () =>
         openCharacterPicker({
           multi: true,
@@ -729,7 +781,7 @@ function openThreadMenu(anchor) {
           onPick: (ids) => addCharactersToThread(ids),
         }),
     },
-    { label: "Save this chat as a transcript", onSelect: exportThread },
+    { label: "💾 export transcript", onSelect: exportThread },
     "hr",
     {
       label: "Clear all messages",
@@ -851,6 +903,7 @@ async function addCharactersToThread(ids) {
   renderHeader();
   renderSidebar();
   renderMessages();
+  renderComposer();
 }
 
 // ---------------------------------------------------------------------------
@@ -862,9 +915,10 @@ function setGenerating(on) {
   renderComposer();
 }
 
-async function generateFor(character, { replaceMessageId = null } = {}) {
+async function generateFor(character, { replaceMessageId = null, speakerRole = "char" } = {}) {
   if (!state.thread) return;
-  const chars = threadCharacters();
+  const cast = threadCharacters();
+  const chars = speakerRole === "system" ? [...cast, character] : cast;
   const user = state.userCharacter || { name: "You", description: "" };
 
   let placeholder;
@@ -873,7 +927,7 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
     placeholder.content = "";
     placeholder.images = [];
   } else {
-    placeholder = newMessage({ role: "char", authorId: character.id, authorName: character.name });
+    placeholder = newMessage({ role: speakerRole, authorId: character.id, authorName: character.name });
     state.messages.push(placeholder);
   }
   placeholder.streaming = true;
@@ -883,11 +937,13 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
   const context = state.messages.filter((m) => m.id !== placeholder.id);
   let painted = "";
   let cancelled = false;
+  let failed = false;
   let lastPaint = 0;
 
   try {
     const { text } = await requestReply({
       focusCharacter: character,
+      speakerRole,
       characters: chars,
       user,
       messages: context,
@@ -910,6 +966,7 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
     placeholder.content = text || painted || "";
   } catch (error) {
     cancelled = error.name === "AbortError" || state.generationStopped;
+    failed = !cancelled;
     placeholder.content = placeholder.content || "";
     if (!cancelled) {
       console.error(error);
@@ -920,7 +977,7 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
   state.streamingId = null;
   state.stopCurrent = null;
 
-  if (cancelled) {
+  if (cancelled || failed) {
     if (!placeholder.content) state.messages = state.messages.filter((m) => m.id !== placeholder.id);
     renderMessages();
     await persistMessages();
@@ -989,11 +1046,13 @@ function paintStreaming(id, full, name) {
 }
 
 async function sendCurrent() {
+  if (autoTalk.state().running) await autoTalk.stop();
   if (state.generating || !state.thread) return;
   const input = $("#composerInput");
   const text = (input?.value || "").trim();
   if (!text) return;
   input.value = "";
+  state.composerDrafts.delete(state.thread.id);
   input.style.height = "auto";
   await sendMessage(text);
 }
@@ -1015,6 +1074,7 @@ async function sendMessage(text) {
   await persistMessages();
   renderMessages();
   renderSidebar();
+  if (state.thread.autoReply === false) return;
   setGenerating(true);
   try {
     for (const character of chars) {
@@ -1696,8 +1756,28 @@ function importAllDataDialog() {
 // ---------------------------------------------------------------------------
 // global events
 
+async function saveArtStyle(value) {
+  const character = threadCharacters()[0]; if (!character) return;
+  character.imageStyle = value; await store.saveCharacter(character); renderHeader();
+}
+
 const CLICK_ACTIONS = {
-  "toggle-sidebar": () => setSidebarOpen(!state.sidebarOpen),
+  "search-threads": () => { state.threadSearch = $("#threadSearchInput").value; renderSidebar(); },
+  "random-art-style": () => saveArtStyle(["anime", "photorealistic", "watercolor", "oil painting", "pixel art"][Math.floor(Math.random() * 5)]),
+  "narrator-info": () => showModal({ title: "🎭 Narrator", body: `<p>The 🗣️ Narrator shortcut writes a single scene narration using your configured provider. Advanced Perchance narrator voices, pacing and powers are not connected.</p>` }),
+  "autotalk-start": startAutoTalk,
+  "autotalk-pause": () => autoTalk.pause(),
+  "autotalk-settings": openAutoTalkSettings,
+  "speaker-reply": (el) => { const c = charById(el.dataset.id); if (c) return generateSpeaker(c); },
+  "speaker-user": () => generateSpeaker({ ...state.userCharacter, autoImage: "never", customCode: "" }, "user"),
+  "speaker-narrator": () => generateSpeaker({ id: "narrator", name: "Narrator", description: "Narrate the scene and surroundings without speaking for the user.", autoImage: "never", customCode: "" }, "system"),
+  "shortcut-menu": (el) => showPopover(el, [{ label: "Add a character to this chat", onSelect: () => openCharacterPicker({ multi: true, exclude: state.thread?.characterIds || [], onPick: addCharactersToThread }) }, { label: "Describe yourself", onSelect: openPersonaEditor }]),
+  "tips": () => showModal({ title: "❓ Tips", body: `<p>Type a reply and press send ➡️. Shift+Enter starts a new line. Speaker buttons request one reply from that participant; 🖼️ Image opens illustration choices.</p><p>Add at least two characters using ⚒️ options, then press 🎭 let them talk to alternate a bounded number of replies. API generation uses your configured provider. No text or image request is made just by opening this page.</p><p>Back up browser-local data with 💾 export. Perchance community comments, living-world simulation, and its image-research tools are not connected here.</p>` }),
+  "fullscreen": async () => { try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); } catch { toast("Fullscreen isn't available in this browser."); } },
+  "rename-thread": async el => { const t = state.threads.find(t => t.id === el.dataset.id); if (!t) return; const name = await promptDialog({ title: "🏷️ Thread name", label: "Name", value: t.title || "" }); if (name === null) return; t.title = name; await store.saveThread(t); if (state.thread?.id === t.id) state.thread.title = name; renderSidebar(); },
+  "thread-card-menu": async el => { await openThread(el.dataset.id); openThreadMenu(el); },
+  "export-thread-card": async el => { await openThread(el.dataset.id); exportThread(); },
+  "toggle-sidebar": () => { if (window.innerWidth <= 700) setSidebarOpen(!state.sidebarOpen); else $("#app").classList.toggle("sidebar-collapsed"); },
   "new-character": () => newCharAndEdit(),
   "add-preset": async (el) => {
     const preset = presetCharacters.find((p) => p.id === el.dataset.id);
@@ -1713,11 +1793,7 @@ const CLICK_ACTIONS = {
     renderMain();
     setSidebarOpen(false);
   },
-  settings: () => {
-    state.view = "settings";
-    renderMain();
-    setSidebarOpen(false);
-  },
+  settings: async () => { await autoTalk.stop(); openSettingsDialog(); setSidebarOpen(false); },
   "start-chat": async (el) => {
     await startChat([el.dataset.id]);
   },
@@ -1750,13 +1826,11 @@ const CLICK_ACTIONS = {
     renderMain();
   },
   "edit-user": () => openPersonaEditor(),
-  "new-chat": () => {
-    if (state.characters.length === 0) newCharAndEdit();
-    else openCharacterPicker({ multi: true, onPick: (ids) => startChat(ids) });
-  },
+  "new-chat": async () => { await autoTalk.stop(); state.view = "discover"; renderMain(); setSidebarOpen(false); },
   "thread-menu": (el) => openThreadMenu(el),
   send: () => sendCurrent(),
   stop: () => {
+    autoTalk.stop();
     state.generationStopped = true;
     state.stopCurrent?.();
     window.root.stopAllTextGenerations?.();
@@ -1767,17 +1841,17 @@ const CLICK_ACTIONS = {
       { label: "Generate from a prompt…", onSelect: () => imageFromPrompt() },
     ]),
   "msg-copy": (el) => {
-    const m = state.messages.find((x) => x.id === el.closest("[data-msg-id]").dataset.id);
+    const m = state.messages.find((x) => x.id === el.closest("[data-msg-id]").dataset.msgId);
     navigator.clipboard?.writeText(m.content).then(() => toast("Copied")).catch(() => {});
   },
   "msg-delete": async (el) => {
-    const id = el.closest("[data-msg-id]").dataset.id;
+    const id = el.closest("[data-msg-id]").dataset.msgId;
     state.messages = state.messages.filter((m) => m.id !== id);
     renderMessages();
     await persistMessages();
   },
   "msg-edit": async (el) => {
-    const id = el.closest("[data-msg-id]").dataset.id;
+    const id = el.closest("[data-msg-id]").dataset.msgId;
     const m = state.messages.find((x) => x.id === id);
     const next = await promptDialog({ title: "Edit message", label: "Message", value: m.content, multiline: true });
     if (next === null) return;
@@ -1785,8 +1859,8 @@ const CLICK_ACTIONS = {
     renderMessages();
     await persistMessages();
   },
-  "msg-reroll": (el) => reroll(el.closest("[data-msg-id]").dataset.id),
-  "msg-illustrate": (el) => illustrate(el.closest("[data-msg-id]").dataset.id),
+  "msg-reroll": (el) => reroll(el.closest("[data-msg-id]").dataset.msgId),
+  "msg-illustrate": (el) => illustrate(el.closest("[data-msg-id]").dataset.msgId),
   "view-image": (el) => openLightbox(el.dataset.src),
   "export-data": () => exportAllData(),
   "import-data": () => importAllDataDialog(),
@@ -1819,16 +1893,19 @@ const CLICK_ACTIONS = {
   },
 };
 
-document.addEventListener("click", (e) => {
+document.addEventListener("click", async (e) => {
   const el = e.target.closest("[data-action]");
   if (!el) return;
-  const handler = CLICK_ACTIONS[el.dataset.action];
+  const action = el.dataset.action;
+  const handler = CLICK_ACTIONS[action];
   if (!handler) return;
   e.preventDefault();
-  handler(el, e);
+  if (autoTalk.state().running && ["new-chat", "new-character", "start-chat", "open-thread", "delete-thread", "edit-character", "edit-user", "wipe-data", "import-data", "import-character"].includes(action)) await autoTalk.stop();
+  try { await handler(el, e); } catch (error) { console.error(error); toast("That action could not be completed.", "error"); }
 });
 
 document.addEventListener("change", async (e) => {
+  if (e.target.matches("[data-character-art-style]")) { await saveArtStyle(e.target.value); return; }
   const el = e.target.closest("[data-setting]");
   if (!el) return;
   const key = el.dataset.setting;
@@ -1837,6 +1914,8 @@ document.addEventListener("change", async (e) => {
   applySettings();
   if (key === "showTimestamps" || key === "fontSize") renderMain();
 });
+
+$("#threadSearchInput").addEventListener("input", e => { state.threadSearch = e.target.value; renderSidebar(); });
 
 $("#characterSearchInput").addEventListener("input", (e) => {
   state.characterSearch = e.target.value;
@@ -1852,6 +1931,7 @@ $("#newChatBtn").addEventListener("click", () => CLICK_ACTIONS["new-chat"]());
 
 function applySettings() {
   document.documentElement.dataset.theme = state.settings.theme;
+  document.documentElement.classList.toggle("light", state.settings.theme !== "dark");
   document.body.style.fontSize = `${state.settings.fontSize}px`;
 }
 
@@ -1862,8 +1942,8 @@ async function boot() {
   try {
     state.settings = await store.initStore();
     // Apply the requested visual redesign once, without touching chats or API keys.
-    if (state.settings.interfaceStyle !== "compact-light-v2") {
-      state.settings = await store.saveSettings({ theme: "light", fontSize: 13, interfaceStyle: "compact-light-v2" });
+    if (state.settings.interfaceStyle !== "perchance-source-v1") {
+      state.settings = await store.saveSettings({ theme: "light", fontSize: 16, interfaceStyle: "perchance-source-v1" });
     }
     applySettings();
     await reloadAll();
