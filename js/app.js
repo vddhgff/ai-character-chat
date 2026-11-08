@@ -68,6 +68,7 @@ const state = {
   generating: false,
   streamingId: null,
   stopCurrent: null,
+  generationStopped: false,
   sidebarOpen: false,
   view: "empty",
   characterSearch: "",
@@ -858,6 +859,7 @@ async function addCharactersToThread(ids) {
 
 function setGenerating(on) {
   state.generating = on;
+  if (on) state.generationStopped = false;
   renderComposer();
 }
 
@@ -881,6 +883,7 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
 
   const context = state.messages.filter((m) => m.id !== placeholder.id);
   let painted = "";
+  let cancelled = false;
   let lastPaint = 0;
 
   try {
@@ -895,6 +898,7 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
         state.stopCurrent = () => promise.stop?.();
       },
       onChunk: (full) => {
+        if (state.generationStopped) return;
         painted = full;
         const t = performance.now();
         if (t - lastPaint > 70) {
@@ -903,15 +907,26 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
         }
       },
     });
+    if (state.generationStopped) throw new DOMException("Generation stopped", "AbortError");
     placeholder.content = text || painted || "";
   } catch (error) {
-    console.error(error);
+    cancelled = error.name === "AbortError" || state.generationStopped;
     placeholder.content = placeholder.content || "";
-    toast("The message could not be generated. Try again.", "error");
+    if (!cancelled) {
+      console.error(error);
+      toast("The message could not be generated. Try again.", "error");
+    }
   }
   delete placeholder.streaming;
   state.streamingId = null;
   state.stopCurrent = null;
+
+  if (cancelled) {
+    if (!placeholder.content) state.messages = state.messages.filter((m) => m.id !== placeholder.id);
+    renderMessages();
+    await persistMessages();
+    return false;
+  }
 
   // Inline picture requests: [[image: a castle at dusk]]
   const extracted = extractImageRequest(placeholder.content);
@@ -929,16 +944,21 @@ async function generateFor(character, { replaceMessageId = null } = {}) {
     renderMessages();
     try {
       const prompt = imagePrompt || (await makeImagePrompt({ messages: state.messages, characters: chars, user, summary: state.thread.summary || "", summaryUpTo: state.thread.summaryUpTo || 0 }));
+      if (state.generationStopped) throw new DOMException("Generation stopped", "AbortError");
       const url = await generateImageFor(prompt, character.imageStyle || "", characterAppearance(character, user));
-      if (url) placeholder.images.push(url);
+      if (url && !state.generationStopped) placeholder.images.push(url);
     } catch (error) {
-      console.error(error);
-      toast("Image generation failed.", "error");
+      if (error.name !== "AbortError" && !state.generationStopped) {
+        console.error(error);
+        toast("Image generation failed.", "error");
+      }
     }
     delete placeholder.painting;
     renderMessages();
     await persistMessages();
   }
+
+  if (state.generationStopped) return false;
 
   if (character.customCode && character.customCode.trim()) {
     const oc = createOc({
@@ -999,13 +1019,13 @@ async function sendMessage(text) {
   setGenerating(true);
   try {
     for (const character of chars) {
-      await generateFor(character);
+      if (state.generationStopped || (await generateFor(character)) === false) break;
     }
   } finally {
     setGenerating(false);
     renderSidebar();
   }
-  backgroundSummarize();
+  if (!state.generationStopped) backgroundSummarize();
 }
 
 async function reroll(messageId) {
@@ -1026,7 +1046,7 @@ async function reroll(messageId) {
 }
 
 async function backgroundSummarize() {
-  if (!state.settings.autoSummarize || state.summarizing || !state.thread) return;
+  if (!state.settings.autoSummarize || state.summarizing || !state.thread || state.generationStopped) return;
   const thread = state.thread;
   const chars = threadCharacters();
   const user = state.userCharacter || { name: "You", description: "" };
@@ -1055,13 +1075,13 @@ async function backgroundSummarize() {
       summaryUpTo: thread.summaryUpTo,
       keepVerbatim: keep,
     });
-    if (result && state.thread && state.thread.id === thread.id) {
+    if (result && !state.generationStopped && state.thread && state.thread.id === thread.id) {
       state.thread.summary = result.summary;
       state.thread.summaryUpTo = result.summaryUpTo;
       await store.saveThread(state.thread);
     }
   } catch (error) {
-    console.error("Summarization failed", error);
+    if (error.name !== "AbortError") console.error("Summarization failed", error);
   } finally {
     state.summarizing = false;
     renderComposer();
@@ -1738,7 +1758,9 @@ const CLICK_ACTIONS = {
   "thread-menu": (el) => openThreadMenu(el),
   send: () => sendCurrent(),
   stop: () => {
+    state.generationStopped = true;
     state.stopCurrent?.();
+    window.root.stopAllTextGenerations?.();
   },
   "composer-image": (el) =>
     showPopover(el, [

@@ -59,3 +59,42 @@ The original code expects Perchance’s `window.root` (kv store + generateText +
 ## Size
 
 Source only. The entire project is under 150 KB of JavaScript and HTML.
+
+## Generation limits and Stop
+
+The browser adapter defaults to an **estimated 12,000-token total context budget**
+and requests **2,048 output tokens** per text call (including summaries). It reserves
+that output allowance, leaving a 9,952-token estimated input target. Automatic
+summarization starts at 75% of that target (7,464 estimated input tokens), after
+more than 16 messages, retaining the newest 12 verbatim. Older messages remain
+stored locally but are represented by a rolling summary in future prompts.
+Summaries make an additional potentially billable API request.
+
+These are configurable estimates, **not verified model capabilities**. Counting
+uses `Math.ceil(text.length / 4)`, not the provider tokenizer; prompt framing is
+not fully counted. There is no hard preflight truncation or guaranteed protection
+from a context-overflow error, and summarization runs after a reply. Confirm your
+selected model supports the combined input/output budget before increasing it.
+The default model's current availability is not verified. In the browser console:
+
+```js
+setGenerationLimits({ contextTokens: 12000, maxOutputTokens: 2048 });
+getGenerationLimits();
+// For a model you have verified supports a larger budget, for example:
+// setGenerationLimits({ contextTokens: 16000, maxOutputTokens: 4096 });
+```
+
+Limits are persisted per browser origin and read on each request. Output must be
+smaller than total context. Provider quotas and model limits still apply. Select a
+compatible provider/model explicitly with `setApiKey(key, provider, model)`.
+Never commit keys. Keys in localStorage are accessible to unsandboxed character
+custom code: only run character code you trust; do not use an owner-funded shared key.
+
+**Stop** aborts active text fetches (including background summary requests), drops
+late results and stops remaining characters in the current turn. It cannot undo
+provider work/billing already incurred, or stop arbitrary custom JavaScript already
+running. Responses still arrive all at once, not as a true token stream. No backend
+or server-side secret protection is provided.
+
+Offline adapter/integration tests (no credentials or provider calls):
+`node --test tests/llm.test.mjs`.
