@@ -62,10 +62,10 @@ Source only. The entire project is under 150 KB of JavaScript and HTML.
 
 ## Generation limits and Stop
 
-The browser adapter defaults to an **estimated 12,000-token total context budget**
+The browser adapter defaults to an **estimated 9,000-token total context budget**
 and requests **2,048 output tokens** per text call (including summaries). It reserves
-that output allowance, leaving a 9,952-token estimated input target. Automatic
-summarization starts at 75% of that target (7,464 estimated input tokens), after
+that output allowance, leaving a 6,952-token estimated input target. Automatic
+summarization starts at 75% of that target (5,214 estimated input tokens), after
 more than 16 messages, retaining the newest 12 verbatim. Older messages remain
 stored locally but are represented by a rolling summary in future prompts.
 Summaries make an additional potentially billable API request.
@@ -78,7 +78,7 @@ selected model supports the combined input/output budget before increasing it.
 The default model's current availability is not verified. In the browser console:
 
 ```js
-setGenerationLimits({ contextTokens: 12000, maxOutputTokens: 2048 });
+setGenerationLimits({ contextTokens: 9000, maxOutputTokens: 2048 });
 getGenerationLimits();
 // For a model you have verified supports a larger budget, for example:
 // setGenerationLimits({ contextTokens: 16000, maxOutputTokens: 4096 });
@@ -98,3 +98,20 @@ or server-side secret protection is provided.
 
 Offline adapter/integration tests (no credentials or provider calls):
 `node --test tests/llm.test.mjs`.
+
+## Uploaded source and compact light layout
+
+The uploaded `ai 2.js` is installed as `js/ai.js`, and `src-memory.js` as
+`js/memory.js`, matching the application imports. The other uploaded JavaScript
+modules use their original names under `js/`; `app.js` retains the tested Stop
+and late-result safeguards. The uploaded development notes are included as
+`ai-character-chat-notes-complete-2.md`; their descriptions of the original
+Perchance app do not mean all those features exist in this modular application.
+The memory example and image-pipeline tests remain optional, not boot dependencies.
+
+The interface defaults to a compact, light-gray sidebar and chat layout. Existing
+installations receive the new light theme and 13px text once; Appearance settings
+can still select dark mode and a different font size afterward. Existing saved
+chat data is retained. Explicit generation-limit overrides remain saved; call
+`setGenerationLimits({contextTokens: 9000, maxOutputTokens: 2048})` to replace an
+older explicit override. API keys are still supplied by each visitor.

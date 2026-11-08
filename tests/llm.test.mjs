@@ -19,9 +19,9 @@ test("synchronous metadata, reserved context, validation and model defaults", as
   globalThis.window = { root: adapter };
   const meta = adapter.generateText({ getMetaObject: true });
   assert.equal(meta.then, undefined);
-  assert.equal(meta.contextWindowTokens, 12000);
-  assert.equal(meta.idealMaxContextTokens, 9952);
-  assert.equal(ai.idealMaxContextTokens(), 9952);
+  assert.equal(meta.contextWindowTokens, 9000);
+  assert.equal(meta.idealMaxContextTokens, 6952);
+  assert.equal(ai.idealMaxContextTokens(), 6952);
   assert.equal(ai.countTokens("12345"), 2);
   await adapter.generateText({ instruction: "test" });
   assert.equal(body.max_tokens, 2048);
@@ -98,13 +98,34 @@ test("UI Stop removes cancelled placeholder, skips subsequent cast, images, cust
 });
 
 test("background summarization threshold, newest twelve retention, and abort without generic error", async () => {
-  let tokens = 7463; let called = 0; let keep; let errors = 0;
+  let tokens = 5213; let called = 0; let keep; let errors = 0;
   const state = { settings: { autoSummarize: true }, thread: { id: "t" }, messages: Array.from({ length: 17 }, () => ({ content: "x" })), generationStopped: false };
-  const ctx = vm.createContext({ state, config: () => ({}), threadCharacters: () => [], promptTokenCount: () => tokens, idealMaxContextTokens: () => 9952,
+  const ctx = vm.createContext({ state, config: () => ({}), threadCharacters: () => [], promptTokenCount: () => tokens, idealMaxContextTokens: () => 6952,
     renderComposer() {}, console: { error: () => errors++ }, store: { saveThread: async () => {} },
     summarizeThread: async (args) => { called++; keep = args.keepVerbatim; throw new DOMException("Stopped", "AbortError"); }, DOMException });
   vm.runInContext(section("async function backgroundSummarize()", "async function illustrate("), ctx);
   await vm.runInContext("backgroundSummarize()", ctx); assert.equal(called, 0);
-  tokens = 7464; await vm.runInContext("backgroundSummarize()", ctx);
+  tokens = 5214; await vm.runInContext("backgroundSummarize()", ctx);
   assert.equal(called, 1); assert.equal(keep, 12); assert.equal(errors, 0); assert.equal(state.summarizing, false);
+});
+
+
+test("light redesign migrates appearance once and preserves later choices", async () => {
+  let saved = { theme: "dark", fontSize: 15, activeUserCharacterId: "my-persona", autoSummarize: false };
+  let writes = 0;
+  const state = {};
+  const ctx = vm.createContext({ state, applySettings() {}, store: {
+    initStore: async () => ({ ...saved }),
+    saveSettings: async (change) => { writes++; saved = { ...saved, ...change }; return { ...saved }; },
+  } });
+  const app = source("app.js");
+  const start = app.indexOf("    state.settings = await store.initStore();");
+  const end = app.indexOf("    await reloadAll();", start);
+  const migrate = `(async () => {${app.slice(start, end)}})()`;
+  await vm.runInContext(migrate, ctx);
+  assert.equal(saved.theme, "light"); assert.equal(saved.fontSize, 13);
+  assert.equal(saved.activeUserCharacterId, "my-persona"); assert.equal(saved.autoSummarize, false);
+  saved = { ...saved, theme: "dark", fontSize: 17 };
+  await vm.runInContext(migrate, ctx);
+  assert.equal(saved.theme, "dark"); assert.equal(saved.fontSize, 17); assert.equal(writes, 1);
 });

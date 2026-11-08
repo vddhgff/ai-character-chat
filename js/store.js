@@ -18,8 +18,8 @@ export const uid = () =>
 export const now = () => Date.now();
 
 export const DEFAULT_SETTINGS = {
-  theme: "dark",
-  fontSize: 15,
+  theme: "light",
+  fontSize: 13,
   enterToSend: true,
   streaming: true,
   autoSummarize: true,

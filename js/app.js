@@ -377,7 +377,7 @@ function renderHeader() {
         )}</span>
       </div>
     </div>
-    <button class="icon-btn" data-action="thread-menu" aria-label="Chat options">${svg("more")}</button>
+    <button class="icon-btn" data-action="thread-menu" aria-label="Chat options">⚒️ <span>Options</span></button>
   `;
 }
 
@@ -474,11 +474,11 @@ function composerHtml() {
     <textarea id="composerInput" rows="1" placeholder="Message ${escapeHtml(
       names.split(",")[0]
     )}…" autocomplete="off"></textarea>
-    <button class="icon-btn" data-action="composer-image" title="Insert a picture">${svg("image")}</button>
+    <button class="icon-btn" data-action="composer-image" title="Insert a picture" aria-label="Insert a picture">🖼️</button>
     ${
       state.generating
-        ? `<button class="icon-btn" data-action="stop" title="Stop">${svg("stop")}</button>`
-        : `<button class="icon-btn primary" data-action="send" title="Send">${svg("send")}</button>`
+        ? `<button class="icon-btn" data-action="stop" title="Stop">${svg("stop")}<span>Stop</span></button>`
+        : `<button class="icon-btn primary" data-action="send" title="Send">${svg("send")}<span>Send</span></button>`
     }
   </div>
   <div class="composer-hint">Enter to send · Shift+Enter for a new line${
@@ -608,8 +608,7 @@ function settingsHtml() {
         s.autoSummarize ? "checked" : ""
       }> <span>Keep long chats coherent (fold old messages into a summary in the background)</span></div>
       <div class="help">Long conversations eventually outgrow what the model can read at once. When that happens, older
-      messages are quietly summarized into a paragraph the character still remembers. It costs nothing but a moment of
-      background work.</div>
+      messages are quietly summarized into a paragraph the character still remembers. It makes an additional AI request, which may be billed by your provider.</div>
     </div>
 
     <div class="field">
@@ -1862,6 +1861,10 @@ function applySettings() {
 async function boot() {
   try {
     state.settings = await store.initStore();
+    // Apply the requested visual redesign once, without touching chats or API keys.
+    if (state.settings.interfaceStyle !== "compact-light-v1") {
+      state.settings = await store.saveSettings({ theme: "light", fontSize: 13, interfaceStyle: "compact-light-v1" });
+    }
     applySettings();
     await reloadAll();
     window.__acc = state;

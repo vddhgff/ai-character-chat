@@ -1,5 +1,5 @@
 // Browser-only text adapter. Budgets are estimates, not provider capability claims.
-export const DEFAULT_LIMITS = Object.freeze({ contextTokens: 12000, maxOutputTokens: 2048 });
+export const DEFAULT_LIMITS = Object.freeze({ contextTokens: 9000, maxOutputTokens: 2048 });
 
 export function validateLimits(value = {}) {
   const limits = { ...DEFAULT_LIMITS, ...value };
